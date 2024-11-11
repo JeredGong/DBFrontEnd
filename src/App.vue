@@ -40,7 +40,7 @@
               Upload
           </div>
       </div>
-      <div class="MenuBox" style="margin-top:27px ; margin-left: 42px;" @click="handleClick('Schdule')">
+      <div class="MenuBox" style="margin-top:27px ; margin-left: 42px;" @click="handleClick('Schedule1')">
           <div class="MenuIcon">
               <el-icon :size=21 >
               <Calendar />
@@ -136,6 +136,7 @@ import { defineComponent, ref } from 'vue';
 import { Collection, House, UploadFilled, Calendar, Setting, Remove, Top } from '@element-plus/icons-vue';
 import Home from './components/Home.vue';
 import Collections from './components/Collection.vue';
+import Schedule1 from './components/Schedule.vue';
 export default defineComponent({
   components: {
     House,
@@ -146,7 +147,8 @@ export default defineComponent({
     Remove,
     Home,
     Top,
-    Collections
+    Collections,
+    Schedule1
   },
   data() {
     return {
