@@ -40,16 +40,25 @@
             Upload
         </div>
     </div>
-    <div class="MenuBox" style="margin-top:27px ; margin-left: 42px;" @click="handleClick('Schdule')">
+    <el-dropdown @command="handleClick">
+    <div class="MenuBox" style="margin-top:27px ; margin-left: 42px;">
         <div class="MenuIcon">
-            <el-icon :size=21 >
-            <Calendar />
-        </el-icon>
+            <el-icon :size=21>
+                <Calendar />
+            </el-icon>
         </div>
         <div class="MenuText">
             Schedule
         </div>
     </div>
+    <template #dropdown>
+        <el-dropdown-menu>
+            <el-dropdown-item command="Schedule">借阅图书</el-dropdown-item>
+            <el-dropdown-item command="Schdule">用户管理</el-dropdown-item>
+            <el-dropdown-item command="Schedule_">借阅管理</el-dropdown-item>
+        </el-dropdown-menu>
+    </template>
+    </el-dropdown>
     <div class="MenuBox" style="margin-top:27px ; margin-left: 42px;" @click="handleClick('Settings')">
         <div class="MenuIcon">
             <el-icon :size=21 >
@@ -137,6 +146,9 @@ import { Collection, House, UploadFilled, Calendar, Setting, Remove, Top } from 
 import Home from './components/Home.vue';
 import Collections from './components/Collection.vue';
 import Schdule from './components/Schdule.vue';
+import Schedule from './components/Schedule.vue';
+import Upload from './components/UploadPaper.vue';
+import Schedule_ from './components/Schedule_.vue';
 export default defineComponent({
 components: {
   House,
@@ -148,7 +160,10 @@ components: {
   Home,
   Top,
   Collections,
-  Schdule
+  Schdule,
+  Upload,
+  Schedule,
+  Schedule_
 },
 data() {
   return {
@@ -250,6 +265,8 @@ cursor: pointer;
 transition: background-color 0.3s, color 0.3s;
 background-color: transparent;
 box-sizing: border-box;
+outline: none; /* 去除默认的焦点框 */
+border: none;  /* 去除可能的边框 */
 }
 .MenuBox:hover {
 background-color: #3498db;
@@ -355,5 +372,23 @@ transition: all 0.3s;
 
 .login-button:hover {
 background-color: #1565c0;
+}
+
+
+.el-dropdown-menu {
+    background-color: #fff;
+    border-radius: 5px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.el-dropdown-item {
+    font-size: 14px;
+    color: #333;
+    padding: 8px 15px;
+}
+
+.el-dropdown-item:hover {
+    background-color: #3498db;
+    color: white;
 }
 </style>
