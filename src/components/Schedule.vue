@@ -59,7 +59,6 @@
             <el-table :data="filteredAvailableBooks" style="width: 100%; display: flex; justify-content: space-between;">
                 <el-table-column type="selection" width="55"></el-table-column>
                 <el-table-column prop="title" label="书名" width="300"></el-table-column>
-                <el-table-column prop="type" label="类型" width="300"></el-table-column>
                 <el-table-column prop="author" label="作者" width="300"></el-table-column>
                 <el-table-column prop="publishDate" label="出版日期" width="300" sortable></el-table-column>
                 <el-table-column label="Actions">
@@ -85,7 +84,6 @@
             <el-input v-model="searchQuery" placeholder="查询已借阅的图书" class="search-input" clearable :prefix-icon="Search"/>
             <el-table :data="filteredBooks" style="width: 100%">
                 <el-table-column prop="title" label="书名" width="200"></el-table-column>
-                <el-table-column prop="type" label="类型" width="200"></el-table-column>
                 <el-table-column prop="author" label="作者" width="200"></el-table-column>
                 <el-table-column prop="publishDate" label="出版日期" width="200" sortable></el-table-column>
                 <el-table-column prop="borrowDate" label="借阅日期" width="200" sortable></el-table-column>
@@ -190,14 +188,14 @@ const handleNotificationCommand = (notification) => {
 };
 
 const borrowedBooks = ref([
-    { title: 'Book 1', type: 'Fiction', author: 'Author 1', publishDate: '2020-01-01', borrowDate: '2023-01-01' },
-    { title: 'Book 2', type: 'Non-Fiction', author: 'Author 2', publishDate: '2019-01-01', borrowDate: '2023-02-01' },
+    { title: 'Book 1', author: 'Author 1', publishDate: '2020-01-01', borrowDate: '2023-01-01' },
+    { title: 'Book 2', author: 'Author 2', publishDate: '2019-01-01', borrowDate: '2023-02-01' },
     // Add more borrowed books here
 ]);
 
 const availableBooks = ref([
-    { title: 'Book A', type: 'Fiction', author: 'Author A', publishDate: '2021-01-01' },
-    { title: 'Book B', type: 'Non-Fiction', author: 'Author B', publishDate: '2018-01-01' },
+    { title: 'Book A', author: 'Author A', publishDate: '2021-01-01' },
+    { title: 'Book B', author: 'Author B', publishDate: '2018-01-01' },
     // Add more available books here
 ]);
 
