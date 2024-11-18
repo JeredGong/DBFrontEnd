@@ -61,7 +61,7 @@
                 <el-table-column prop="title" label="书名" width="300"></el-table-column>
                 <el-table-column prop="author" label="作者" width="300"></el-table-column>
                 <el-table-column prop="publishDate" label="出版日期" width="300" sortable></el-table-column>
-                <el-table-column label="Actions">
+                <el-table-column label="操作" align="center">
                     <template v-slot="scope">
                         <el-button type="primary" @click="borrowBook(scope.row)">借阅</el-button>
                     </template>
@@ -80,7 +80,7 @@
     </div>
 
 
-    <el-dialog v-model="borrowDialogVisible" title="Borrowed Book" width="1150" :visible.sync="borrowDialogVisible">
+    <el-dialog v-model="borrowDialogVisible" title="您已借阅的书籍" width="1150" :visible.sync="borrowDialogVisible">
             <el-input v-model="searchQuery" placeholder="查询已借阅的图书" class="search-input" clearable :prefix-icon="Search"/>
             <el-table :data="filteredBooks" style="width: 100%">
                 <el-table-column prop="title" label="书名" width="200"></el-table-column>
