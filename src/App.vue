@@ -146,6 +146,7 @@ import { Collection, House, UploadFilled, Calendar, Setting, Remove, Top } from 
 import Home from './components/Home.vue';
 import Collections from './components/Collection.vue';
 import Schdule from './components/Schdule.vue';
+import Settings from './components/Settings.vue';
 import Schedule from './components/Schedule.vue';
 import Upload from './components/UploadPaper.vue';
 import Schedule_ from './components/Schedule_.vue';
@@ -161,6 +162,7 @@ components: {
   Top,
   Collections,
   Schdule,
+  Settings
   Upload,
   Schedule,
   Schedule_
