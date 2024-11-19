@@ -137,6 +137,7 @@ import { Collection, House, UploadFilled, Calendar, Setting, Remove, Top } from 
 import Home from './components/Home.vue';
 import Collections from './components/Collection.vue';
 import Schdule from './components/Schdule.vue';
+import Settings from './components/Settings.vue';
 export default defineComponent({
 components: {
   House,
@@ -148,7 +149,9 @@ components: {
   Home,
   Top,
   Collections,
-  Schdule
+  Schdule,
+  Settings
+ 
 },
 data() {
   return {
