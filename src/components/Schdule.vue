@@ -59,59 +59,76 @@
   </div>
 </template>
 
-<script>
-import { ref } from 'vue';
+<script lang="ts">
+import { ref, Ref } from 'vue';
+
+// 用户数据接口
+interface User {
+  id: number;
+  username: string;
+  email: string;
+  isAdmin: boolean;
+}
+
+// 新用户数据接口
+interface NewUser {
+  username: string;
+  email: string;
+  password: string;
+}
 
 export default {
   name: 'AdminSchedule',
   setup() {
-    // 模拟用户数据
-    const users = ref([
+    // 用户列表数据
+    const users: Ref<User[]> = ref([
       { id: 1, username: 'Alice', email: 'alice@example.com', isAdmin: false },
       { id: 2, username: 'Bob', email: 'bob@example.com', isAdmin: true },
       { id: 3, username: 'Charlie', email: 'charlie@example.com', isAdmin: false },
     ]);
 
     // 新用户数据
-    const newUser = ref({
+    const newUser: Ref<NewUser> = ref({
       username: '',
       email: '',
-      password: ''
+      password: '',
     });
 
     // 控制弹窗的显示
-    const showAddUserModal = ref(false);
+    const showAddUserModal: Ref<boolean> = ref(false);
 
-    // 添加用户弹窗显示
-    const addUser = () => {
+    // 显示添加用户弹窗
+    const addUser = (): void => {
       showAddUserModal.value = true;
     };
 
     // 关闭添加用户弹窗
-    const closeAddUserModal = () => {
+    const closeAddUserModal = (): void => {
       showAddUserModal.value = false;
     };
 
     // 提交新用户
-    const submitNewUser = () => {
-      const newId = users.value.length + 1;
+    const submitNewUser = (): void => {
+      const newId = users.value.length
+        ? Math.max(...users.value.map((user) => user.id)) + 1
+        : 1; // 确保 ID 唯一
       users.value.push({
         id: newId,
         username: newUser.value.username,
         email: newUser.value.email,
-        isAdmin: false
+        isAdmin: false,
       });
       newUser.value = { username: '', email: '', password: '' }; // 清空表单
       closeAddUserModal();
     };
 
     // 删除用户
-    const deleteUser = (userId) => {
-      users.value = users.value.filter(user => user.id !== userId);
+    const deleteUser = (userId: number): void => {
+      users.value = users.value.filter((user) => user.id !== userId);
     };
 
     // 切换管理员权限
-    const toggleAdmin = (user) => {
+    const toggleAdmin = (user: User): void => {
       user.isAdmin = !user.isAdmin;
     };
 
@@ -125,14 +142,14 @@ export default {
       deleteUser,
       toggleAdmin,
     };
-  }
+  },
 };
 </script>
 
 <style scoped>
 .admin-schedule {
   padding: 20px;
-  background-color: #f0f4f8; /* Light background for the container */
+  background-color: #f0f4f8;
 }
 
 .actions button,
@@ -140,7 +157,7 @@ button {
   padding: 5px 10px;
   margin-right: 10px;
   cursor: pointer;
-  background-color: #1565c0; /* Blue button background */
+  background-color: #1565c0;
   color: white;
   border: none;
   border-radius: 5px;
@@ -148,7 +165,7 @@ button {
 
 .actions button:hover,
 button:hover {
-  background-color: #0d47a1; /* Darker blue on hover */
+  background-color: #0d47a1;
 }
 
 .user-table {
@@ -165,7 +182,7 @@ button:hover {
 }
 
 .user-table th {
-  background-color: #1565c0; /* Blue background for table header */
+  background-color: #1565c0;
   color: white;
 }
 
