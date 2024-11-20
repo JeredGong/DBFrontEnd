@@ -4,7 +4,7 @@
     <div class="header-container">
       <div class="header-left">
         <div class="overview-title">
-          <span>文档查询系统</span>
+          <span>文档查询与上传</span>
         </div>
         <div class="formatted-date">
           <span>{{ formattedDate }}</span>
@@ -34,7 +34,7 @@
 
     <!-- Upload and Download Buttons -->
     <div class="action-buttons">
-      <el-button type="primary" :icon="Upload" @click="handleUpload">上传文档</el-button>
+      <el-button type="primary" :icon="Upload" @click="openDialog">上传文档</el-button>
       <el-button :type="BatchDowload" :icon="Download" @click="handleBatchDownload">批量下载</el-button>
     </div>
 
@@ -81,13 +81,179 @@
       ></el-pagination>
     </div>
   </div>
+  <el-dialog
+  title=""
+  v-model="dialogVisible"
+  width="50%"
+  :before-close="handleDialogClose"
+  custom-class="custom-dialog"
+>
+  <!-- 美化标题 -->
+  <div class="dialog-header">
+    <h2 class="dialog-title">上传文档</h2>
+    <p class="dialog-subtitle">请按照步骤填写信息并上传文件</p>
+  </div>
+
+  <!-- 步骤导航 -->
+  <el-steps
+    :active="currentStep"
+    align-center
+    finish-status="success"
+    class="steps-container"
+  >
+    <el-step title="填写文档信息"></el-step>
+    <el-step title="上传文档"></el-step>
+  </el-steps>
+
+  <!-- 第一步：填写文档基本信息 -->
+  <div v-if="currentStep === 1" class="step-content">
+    <el-form :model="documentForm" ref="formRef" label-width="120px">
+      <el-form-item
+        label="标题"
+        prop="title"
+        :rules="[{ required: true, message: '请输入标题', trigger: 'blur' }]"
+      >
+        <el-input
+          v-model="documentForm.title"
+          placeholder="请输入标题"
+          class="custom-input"
+        ></el-input>
+      </el-form-item>
+      <el-form-item
+        label="作者"
+        prop="author"
+        :rules="[{ required: true, message: '请输入作者', trigger: 'blur' }]"
+      >
+        <el-input
+          v-model="documentForm.author"
+          placeholder="请输入作者"
+          class="custom-input"
+        ></el-input>
+      </el-form-item>
+      <el-form-item
+        label="类型"
+        prop="type"
+        :rules="[{ required: true, message: '请选择类型', trigger: 'change' }]"
+      >
+        <el-select v-model="documentForm.type" placeholder="请选择类型" class="custom-select">
+          <el-option label="图书" value="Book"></el-option>
+          <el-option label="论文" value="Paper"></el-option>
+        </el-select>
+      </el-form-item>
+      <el-form-item
+        label="出版时间"
+        prop="publishDate"
+        :rules="[{ required: true, message: '请选择时间', trigger: 'change' }]"
+      >
+        <el-date-picker
+          v-model="documentForm.publishDate"
+          type="date"
+          placeholder="选择出版时间"
+          format="YYYY-MM-DD"
+          class="custom-datepicker"
+        ></el-date-picker>
+      </el-form-item>
+    </el-form>
+  </div>
+
+  <!-- 第二步：上传文档 -->
+  <div v-if="currentStep === 2" class="step-content">
+    <el-upload
+      class="upload-demo"
+      drag
+      action="https://jsonplaceholder.typicode.com/posts/"
+      :limit="3"
+      :on-exceed="handleExceed"
+      multiple
+      :file-list="fileList"
+      list-type="text"
+      :on-preview="handlePreview"
+      :on-remove="handleRemove"
+    >
+      <div class="drag-upload-box">
+        <i class="el-icon-upload"></i>
+        <div class="upload-text">将文件拖拽至此处，或点击上传</div>
+        <div class="upload-tip">最多上传 1 个文件</div>
+      </div>
+    </el-upload>
+  </div>
+
+  <!-- 对话框底部 -->
+  <template #footer>
+    <span class="dialog-footer">
+      <el-button v-if="currentStep > 1" @click="prevStep" class="custom-button">上一步</el-button>
+      <el-button v-if="currentStep === 1" @click="nextStep" type="primary" class="custom-button">下一步</el-button>
+      <el-button
+        v-if="currentStep === 2"
+        type="primary"
+        @click="submitUpload"
+        class="custom-button"
+      >
+        提交
+      </el-button>
+      <el-button @click="dialogVisible = false" class="custom-button">取消</el-button>
+    </span>
+  </template>
+</el-dialog>
 </template>
 
 <script lang="ts" setup>
 import { ref, computed } from 'vue';
+import { reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import { Message, House, Search,Upload,Download} from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
+const dialogVisible = ref(false); // 控制对话框可见性
+const fileList = ref([]); // 文件列表
+import type { FormInstance } from 'element-plus';
 
+const formRef = ref<FormInstance | null>(null); // 表单引用
+const currentStep = ref(1); // 当前步骤
+const documentForm = reactive({
+  title: '',
+  author: '',
+  type: '',
+  publishDate: '',
+});
+const openDialog = () => {
+      dialogVisible.value = true;
+      console.log('打开文件上传对话框');
+      console.log(dialogVisible.value);
+    };
+const handleExceed = (files: any, fileList: any) => {
+  ElMessage.warning(`最多上传 1 个文件，当前已选择 ${fileList.length} 个文件`);
+};
+const handleDialogClose = () => {
+      fileList.value = []; // 关闭对话框时清空文件列表
+      dialogVisible.value = false;
+    };
+const handlePreview = (file) => {
+      console.log('预览文件:', file);
+    };
+
+const handleRemove = (file, fileList) => {
+      console.log('删除文件:', file, fileList);
+    };
+const nextStep = () => {
+  if (!formRef.value) return; // 确保表单引用已绑定
+  formRef.value.validate((valid) => {
+    if (valid) {
+      currentStep.value++;
+    } else {
+      ElMessage.error('请填写完整的文档信息');
+    }
+  });
+};
+
+const prevStep = () => {
+  currentStep.value--;
+};
+
+const submitUpload = () => {
+      // 提交上传逻辑
+      console.log('提交上传的文件:', fileList.value);
+      dialogVisible.value = false;
+    };
 // Initialize router
 const router = useRouter();
 interface Document {
@@ -187,7 +353,6 @@ const handleBatchDownload = () => {
      console.log('No rows selected for batch download');
    }
 };
-const handleUpload = () => console.log('Upload clicked');
 const searchDocuments = () => console.log('Search:', searchQuery.value);
 const downloadDocument = (doc) => console.log('Download:', doc.title);
 const deleteDocument = (index) => documents.value.splice(index, 1);
@@ -295,5 +460,92 @@ const editDocument = (doc) => console.log('Edit:', doc.title);
   display: flex;
   justify-content: center;
   margin-top: 20px;
+}
+.dialog-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.dialog-title {
+  font-size: 24px;
+  font-weight: bold;
+  color: #1e90ff;
+  margin-bottom: 8px;
+}
+
+.dialog-subtitle {
+  font-size: 14px;
+  color: #8c8c8c;
+}
+
+/* 步骤导航 */
+.steps-container {
+  margin-bottom: 20px;
+}
+
+/* 表单项 */
+.step-content {
+  background-color: #ffffff;
+  border-radius: 15px;
+  padding: 20px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.custom-input .el-input__inner,
+.custom-select .el-select__inner,
+.custom-datepicker .el-date-editor {
+  border-radius: 30px;
+  padding: 12px 15px;
+  font-size: 14px;
+  border: 1px solid #d9d9d9;
+  background-color: #f5f5f5;
+  transition: all 0.3s ease;
+}
+
+.custom-input .el-input__inner:focus,
+.custom-select .el-select__inner:focus,
+.custom-datepicker .el-date-editor:focus {
+  border-color: #1e90ff;
+  box-shadow: 0 0 8px rgba(30, 144, 255, 0.3);
+}
+
+.custom-input .el-input__inner::placeholder,
+.custom-select .el-select__inner::placeholder {
+  color: #bfbfbf;
+  font-size: 13px;
+}
+
+/* 上传区域 */
+.drag-upload-box {
+  border: 2px dashed #cfd8e3;
+  border-radius: 15px;
+  padding: 40px;
+  text-align: center;
+  color: #606266;
+  background-color: #f0f5ff;
+  transition: border-color 0.3s ease;
+}
+
+.drag-upload-box:hover {
+  border-color: #1e90ff;
+}
+
+.drag-upload-box i {
+  font-size: 32px;
+  color: #1e90ff;
+  margin-bottom: 10px;
+}
+
+/* 按钮样式 */
+.custom-button {
+  border-radius: 20px;
+  padding: 8px 24px;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.custom-button:hover {
+  background-color: #1e90ff;
+  color: white;
 }
 </style>
