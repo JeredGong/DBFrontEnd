@@ -162,7 +162,7 @@ components: {
   Top,
   Collections,
   Schdule,
-  Settings
+  Settings,
   Upload,
   Schedule,
   Schedule_
