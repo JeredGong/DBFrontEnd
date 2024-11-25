@@ -61,9 +61,9 @@
         <el-table-column label="操作" width="320" align="center" >
           <template #default="scope">
             <div class="action-buttons-group">
-              <el-button size="small" type="success" icon="el-icon-download" @click="downloadDocument(scope.row)">下载</el-button>
-              <el-button size="small" type="danger" icon="el-icon-delete" @click="deleteDocument(scope.$index)">删除</el-button>
-              <el-button size="small" type="warning" icon="el-icon-edit" @click="editDocument(scope.row)">编辑</el-button>
+              <el-button size="small" type="success" icon="el-icon-download" @click="downloadDocument(scope.row.id)">下载</el-button>
+              <el-button size="small" type="danger" icon="el-icon-delete" @click="deleteDocument(scope.row.id)" v-if="Role == 0">删除</el-button>
+              <el-button size="small" type="warning" icon="el-icon-edit" @click="editDocument(scope.row)" v-if="Role == 0">编辑</el-button>
             </div>
           </template>
         </el-table-column>
@@ -73,7 +73,7 @@
       <el-pagination
         background
         layout="prev, pager, next"
-        :total="filteredDocuments.length"
+        :total="documents.values.length"
         :page-size="pageSize"
         v-model:current-page="currentPage"
         @current-change="handlePageChange"
@@ -132,10 +132,10 @@
       </el-form-item>
       <el-form-item
         label="类型"
-        prop="type"
+        prop="docType"
         :rules="[{ required: true, message: '请选择类型', trigger: 'change' }]"
       >
-        <el-select v-model="documentForm.type" placeholder="请选择类型" class="custom-select">
+        <el-select v-model="documentForm.docType" placeholder="请选择类型" class="custom-select">
           <el-option label="图书" value="Book"></el-option>
           <el-option label="论文" value="Paper"></el-option>
         </el-select>
@@ -162,13 +162,15 @@
       class="upload-demo"
       drag
       action="https://jsonplaceholder.typicode.com/posts/"
-      :limit="3"
+      :limit="1"
       :on-exceed="handleExceed"
       multiple
       :file-list="fileList"
-      list-type="text"
+      list-type='text'
       :on-preview="handlePreview"
       :on-remove="handleRemove"
+      :on-change="handleFileChange"
+      :auto-upload="false" 
     >
       <div class="drag-upload-box">
         <i class="el-icon-upload"></i>
@@ -202,69 +204,90 @@ import { ref, computed } from 'vue';
 import { reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import { Message, House, Search,Upload,Download} from '@element-plus/icons-vue';
-import { ElMessage } from 'element-plus';
-const dialogVisible = ref(false); // 控制对话框可见性
-const fileList = ref([]); // 文件列表
+import { ElMessageBox } from 'element-plus';
 import type { FormInstance } from 'element-plus';
+import { ElMessage } from 'element-plus';
+import axios from 'axios';
+import { useUserStore } from '../stores/user';
 
-const formRef = ref<FormInstance | null>(null); // 表单引用
-const currentStep = ref(1); // 当前步骤
-const documentForm = reactive({
-  title: '',
-  author: '',
-  type: '',
-  publishDate: '',
-});
-const openDialog = () => {
-      dialogVisible.value = true;
-      console.log('打开文件上传对话框');
-      console.log(dialogVisible.value);
-    };
-const handleExceed = (files: any, fileList: any) => {
-  ElMessage.warning(`最多上传 1 个文件，当前已选择 ${fileList.length} 个文件`);
-};
-const handleDialogClose = () => {
-      fileList.value = []; // 关闭对话框时清空文件列表
-      dialogVisible.value = false;
-    };
-const handlePreview = (file) => {
-      console.log('预览文件:', file);
-    };
-
-const handleRemove = (file, fileList) => {
-      console.log('删除文件:', file, fileList);
-    };
-const nextStep = () => {
-  if (!formRef.value) return; // 确保表单引用已绑定
-  formRef.value.validate((valid) => {
-    if (valid) {
-      currentStep.value++;
-    } else {
-      ElMessage.error('请填写完整的文档信息');
-    }
-  });
-};
-
-const prevStep = () => {
-  currentStep.value--;
-};
-
-const submitUpload = () => {
-      // 提交上传逻辑
-      console.log('提交上传的文件:', fileList.value);
-      dialogVisible.value = false;
-    };
-// Initialize router
-const router = useRouter();
+const jwtToken = localStorage.getItem('authToken'); // 假设存储在 localStorage
+const userStore = useUserStore();           // 引入用户状态
+const Role = userStore.user.Role;
+// 第一部分：搜索文档的逻辑处理
 interface Document {
+  id: number;
   title: string;
   type: string;
   author: string;
   publishDate: string;
-  // 其他属性
-}
-const BatchDowload = ref('info');
+  upload_date: string;
+  download_count: number;
+}  // 定义文档类型
+
+const searchQuery = ref('');            // 搜索关键字
+
+const documents = ref<Document[]>([]);  // 搜索结果文档列表
+
+// 搜索文档的逻辑
+const searchDocuments = async () => {
+  if (!searchQuery.value.trim()) {
+    ElMessage.warning('请输入搜索关键词');
+    return;
+  }
+
+  try {
+    // 调用后端搜索接口
+    const response = await axios.get(`/docs/search/${encodeURIComponent(searchQuery.value)}`, {
+      headers: {
+        Authorization: `Bearer ${jwtToken}`, // 添加 JWT Token
+      },
+    });
+    documents.value = response.data;
+    console.log('搜索成功:', documents.value);
+  } catch (error) {
+    console.error('搜索失败:', error);
+    ElMessage.error('搜索失败，请稍后重试');
+  }
+};
+
+// 当前页码和每页显示数量
+const currentPage = ref(1);
+const pageSize = 5;
+
+// 分页逻辑
+const paginatedDocuments = computed(() => {
+  const start = (currentPage.value - 1) * pageSize;
+  const end = start + pageSize;
+  return documents.value.slice(start, end);
+});
+
+// 处理分页切换
+const handlePageChange = (page) => {
+  currentPage.value = page;
+};
+
 const selectedRows = ref<Document[]>([]); // 存储选中行的数据
+
+// 批量下载逻辑
+const handleBatchDownload = async () => {
+  if (selectedRows.value.length > 0) {
+    try {
+      console.log('开始批量下载...');
+      await Promise.all(
+        selectedRows.value.map(async (row) => {
+          await downloadDocument(row.id);
+        })
+      );
+      ElMessage.success('批量下载成功');
+    } catch (error) {
+      ElMessage.error('批量下载失败，请检查网络或重试');
+    }
+  } else {
+    ElMessage.warning('请先选择要下载的文档');
+  }
+};
+
+// 选中行变化时，批量下载按钮样式变化
 const handleSelectionChange = (rows: Document[]) => {
       selectedRows.value = rows;
       console.log('Selected rows:', selectedRows.value);
@@ -276,13 +299,213 @@ const handleSelectionChange = (rows: Document[]) => {
       }
     };
 
+// 下载文档的逻辑
+const downloadDocument = async (id: number) => {
+  try {
+    const response = await axios.get(`/docs/${id}`, {
+      responseType: 'blob', // 指定返回二进制文件
+    });
+
+    // 创建 Blob 对象
+    const blob = new Blob([response.data], { type: 'application/pdf' });
+    const url = window.URL.createObjectURL(blob);
+
+    // 创建下载链接并触发下载
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `document_${id}.pdf`); // 自定义下载文件名
+    document.body.appendChild(link);
+    link.click();
+
+    // 清理 URL 对象
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(link);
+
+    ElMessage.success('文档下载成功！');
+  } catch (error) {
+    console.error('文档下载失败:', error);
+    ElMessage.error('文档下载失败，请稍后重试');
+  }
+};
+
+// 删除文档的逻辑
+const DeleteDocument = async (id: number) => {
+  try {
+    const response = await axios.delete(`/docs/${id}`, {
+      headers: {
+        Authorization: `Bearer ${jwtToken}`, // 添加 JWT Token
+      },});
+    } catch (error) {
+    console.error('文档删除失败:', error);
+    ElMessage.error('文档删除失败，请稍后重试');}
+
+}
+const deleteDocument = (id: number) => {
+  ElMessageBox.confirm('此操作将永久删除该文件, 是否继续?', '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning',
+  }).then(() => {
+    DeleteDocument(id);
+    ElMessage.success('删除成功');
+  }).catch(() => {
+    ElMessage.info('已取消删除');
+  });
+};
+
+// 第二部分：上传文档的逻辑处理
+
+// 表单数据
+const documentForm = reactive({
+  title: '',
+  author: '',
+  docType: '',
+  publishDate: '', // ISO 字符串日期
+  pdfContent: '', // 文件的 Base64 字符串
+});
+
+// 一些状态变量
+const dialogVisible = ref(false); // 控制对话框可见性
+
+const fileList = ref([]); // 一个需要维护的文件列表，因为upload组件不会维护文件列表
+
+const formRef = ref<FormInstance | null>(null); // 表单引用
+
+const currentStep = ref(1); // 当前步骤
+
+
+
+// 文件上传的逻辑，首先将上传的文件保存到表单
+const handleFileChange = (file, fileList) => {
+  fileList.value = fileList;
+
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    let result = event.target?.result as string;
+
+    // 动态移除 `data:<MIME>;base64,` 前缀
+    if (result?.startsWith("data:")) {
+      const base64StartIndex = result.indexOf("base64,") + 7; // 找到 Base64 数据的起始位置
+      result = result.substring(base64StartIndex);
+    }
+
+    documentForm.pdfContent = result; // 存储纯 Base64 数据
+    console.log("去除前缀后的 Base64 内容:", documentForm.pdfContent);
+  };
+
+  // 读取文件为 Base64 数据
+  reader.readAsDataURL(file.raw);
+};
+
+//文件预览的逻辑
+const handlePreview = (file) => {
+  const pdfContent = documentForm.pdfContent; // 获取 Base64 内容
+  if (!pdfContent) {
+    console.error('未找到 PDF 内容');
+    return;
+  }
+
+  // 将 Base64 转换为 Blob
+  const byteCharacters = atob(pdfContent); // 解码 Base64
+  const byteNumbers = new Array(byteCharacters.length).fill(0).map((_, i) => byteCharacters.charCodeAt(i));
+  const byteArray = new Uint8Array(byteNumbers);
+  const blob = new Blob([byteArray], { type: 'application/pdf' });
+
+  // 创建临时 URL
+  const url = URL.createObjectURL(blob);
+
+  // 创建一个隐藏的 <a> 元素触发下载
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = file.name || 'document.pdf'; // 设置文件名
+  document.body.appendChild(link);
+  link.click();
+
+  // 清理
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url); // 释放 URL
+};
+
+
+// 文件超出限制的逻辑
+const handleExceed = (files: any, fileList: any) => {
+  if (files.length + fileList.length > 1){
+    ElMessage.warning(`最多上传 1 个文件，当前已选择 ${fileList.length} 个文件`);
+  }
+};
+
+// ----- 步骤导航逻辑 -----
+
+// 打开对话框
+const openDialog = () => {dialogVisible.value = true;};
+
+// 关闭对话框
+const handleDialogClose = () => {
+      fileList.value = []; // 关闭对话框时清空文件列表
+      dialogVisible.value = false;
+    };
+
+// 上一步
+const prevStep = () => {currentStep.value--;};  
+
+// 下一步
+const nextStep = () => {
+  if (!formRef.value) return; // 确保表单引用已绑定
+  formRef.value.validate((valid) => {
+    if (valid) {
+      currentStep.value++;
+    } else {
+      ElMessage.error('请填写完整的文档信息');
+    }
+  });
+};
+
+// ----- 步骤导航逻辑 End-----
+  
+
+const handleRemove = (file) => {
+      ElMessage.warning(`文件 ${file.name} 已移除`);
+    };
+
+// 提交上传的逻辑，发送 POST 请求
+const submitUpload = async () => {
+  if (!documentForm.pdfContent) {
+    ElMessage.error('请上传文件');
+    return;
+  }
+  try {
+    const jwtToken = localStorage.getItem('authToken'); // 获取 JWT Token
+    if(!jwtToken){
+      ElMessage.error('请先登录');
+      return;
+    }
+    const response = await axios.post('/docs', documentForm, {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${jwtToken}`,
+      },
+    });
+    ElMessage.success('文档上传成功');
+    console.log('服务器响应:', response.data);
+  } catch (error) {
+    console.error('文档上传失败:', error);
+    ElMessage.error('文档上传失败，请稍后重试');
+  }
+};
+
+// 第三部分：其他逻辑处理
+// Initialize router
+const router = useRouter();
+const BatchDowload = ref('info');
+
+
 // Mock data for notifications
 const notifications = ref([
   { message: 'You have a new message from Dr. Alice Smith' },
   { message: 'Your paper "AI and Ethics" has been downloaded 5 times' },
   { message: 'You have a new follower: Dr. Bob Brown' },
 ]);
-// Formatting the current date
+// 计算属性：格式化当前日期
 const formattedDate = computed(() => {
   const currentDate = new Date();
   const day = currentDate.getDate();
@@ -317,45 +540,10 @@ const handleNotificationCommand = (notification) => {
   return selectedRows
 };
 
-// Mock data for documents
-const documents = ref([
-  { title: 'Machine Learning Basics', author: 'Alice Smith', publishDate: '2021-05-10', type: 'Book' },
-  { title: 'Deep Learning Advanced', author: 'Bob Brown', publishDate: '2022-03-15', type: 'Paper' },
-  { title: 'AI in Medicine', author: 'Charlie Johnson', publishDate: '2020-11-25', type: 'Book' },
-  // 更多文档数据...
-]);
 
-const searchQuery = ref('');
-const currentPage = ref(1);
-const pageSize = 5;
 
-const filteredDocuments = computed(() => {
-  return documents.value.filter((doc) =>
-    doc.title.toLowerCase().includes(searchQuery.value.toLowerCase())
-  );
-});
 
-const paginatedDocuments = computed(() => {
-  const start = (currentPage.value - 1) * pageSize;
-  const end = start + pageSize;
-  return filteredDocuments.value.slice(start, end);
-});
 
-const handlePageChange = (page) => {
-  currentPage.value = page;
-};
-const handleBatchDownload = () => { 
-   // 检查是否有选中的行
-   if (selectedRows.value.length > 0) {
-     console.log('Batch download:', selectedRows.value);
-     
-   } else {
-     console.log('No rows selected for batch download');
-   }
-};
-const searchDocuments = () => console.log('Search:', searchQuery.value);
-const downloadDocument = (doc) => console.log('Download:', doc.title);
-const deleteDocument = (index) => documents.value.splice(index, 1);
 const editDocument = (doc) => console.log('Edit:', doc.title);
 
 </script>
