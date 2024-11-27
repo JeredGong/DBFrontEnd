@@ -59,7 +59,7 @@
       border
       style="width: 100%"
       class="custom-table"
-      :data="filteredUsers"
+      :data="paginatedUsers"
     >
       <el-table-column
         prop="username"
@@ -128,101 +128,182 @@
     />
   </div>
      
+<div class="form-item">
+  <el-dialog
+  v-model="showAddUserModal"
+  title=""
+  width="40%"
+  :close-on-click-modal="false"
+  class="custom-dialog"
+>
+  <!-- 自定义标题 -->
+  <div class="dialog-header">
+    <h2>添加新用户</h2>
+  </div>
 
-      <el-dialog
-    v-model="showAddUserModal"
-    title=""
-    width="40%"
-    :close-on-click-modal="false"
-    class="custom-dialog"
-  >
-    <!-- 自定义标题 -->
-    <div class="dialog-header">
-      <h2>添加新用户</h2>
+  <form @submit.prevent="submitNewUser">
+    <!-- 头像上传 -->
+    <div class="form-item">
+      <el-form-item label="头像" align="center" label-width="40px" >
+        <el-upload
+          class="avatar-uploader"
+          action="#"
+          :show-file-list="false"
+          :on-change="handleAvatarChange"
+          :before-upload="beforeAvatarUpload"
+        >
+          <el-avatar
+            size="large"
+            :src="newUser.avatar"
+            class="avatar-preview"
+          />
+          <div slot="trigger" class="upload-trigger">
+            <el-button
+              type="primary"
+              icon="el-icon-picture"
+              size="small"
+            >
+              上传头像
+            </el-button>
+          </div>
+        </el-upload>
+      </el-form-item>
     </div>
 
-    <form @submit.prevent="submitNewUser">
-      <div class="form-item">
-        <el-form-item label="用户名" label-width="100px" required>
-          <el-input
-            v-model="newUser.username"
-            placeholder="请输入用户名"
-            class="custom-input"
-          />
-        </el-form-item>
-      </div>
-      <div class="form-item">
-        <el-form-item label="邮箱" label-width="100px" required>
-          <el-input
-            v-model="newUser.email"
-            placeholder="请输入邮箱"
-            type="email"
-            class="custom-input"
-          />
-        </el-form-item>
-      </div>
-      <div class="form-item">
-        <el-form-item label="密码" label-width="100px" required>
-          <el-input
-            v-model="newUser.password"
-            placeholder="请输入密码"
-            type="password"
-            class="custom-input"
-          />
-        </el-form-item>
-      </div>
-      <div class="modal-actions">
-        <el-button
-          type="primary"
-          size="large"
-          native-type="submit"
-          class="submit-btn"
-        >
-          提交
-        </el-button>
-        <el-button
-          size="large"
-          type="danger"
-          @click="closeAddUserModal"
-          class="cancel-btn"
-        >
-          取消
-        </el-button>
-      </div>
-    </form>
-  </el-dialog>
+    <!-- 用户名 -->
+    <div class="form-item">
+      <el-form-item label="用户名" label-width="100px" required>
+        <el-input
+          v-model="newUser.username"
+          placeholder="请输入用户名"
+          class="custom-input"
+        />
+      </el-form-item>
+    </div>
+
+    <!-- 邮箱 -->
+    <div class="form-item">
+      <el-form-item label="邮箱" label-width="100px" required>
+        <el-input
+          v-model="newUser.email"
+          placeholder="请输入邮箱"
+          type="email"
+          class="custom-input"
+        />
+      </el-form-item>
+    </div>
+
+    <!-- 密码 -->
+    <div class="form-item">
+      <el-form-item label="密码" label-width="100px" required>
+        <el-input
+          v-model="newUser.password"
+          placeholder="请输入密码"
+          type="password"
+          class="custom-input"
+        />
+      </el-form-item>
+    </div>
+
+    <!-- 是否设置为管理员 -->
+    <div class="form-item">
+      <el-form-item label="设置为管理员" label-width="100px">
+        <el-switch
+          v-model="newUser.isAdmin"
+          active-text="是"
+          inactive-text="否"
+          active-color="#3498db"
+          inactive-color="#e74c3c"
+        />
+      </el-form-item>
+    </div>
+
+    <!-- 按钮 -->
+    <div class="modal-actions">
+      <el-button
+        type="primary"
+        size="large"
+        native-type="submit"
+        class="submit-btn"
+      >
+        提交
+      </el-button>
+      <el-button
+        size="large"
+        type="danger"
+        @click="closeAddUserModal"
+        class="cancel-btn"
+      >
+        取消
+      </el-button>
+    </div>
+  </form>
+</el-dialog>
+</div>
+  
     </div>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { ref, computed} from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, computed, onMounted} from 'vue';
 import { Message, House, Search } from '@element-plus/icons-vue';
+import { defineEmits } from 'vue';
+import axios from 'axios';
 
+// 使用 defineEmits 来定义触发的事件
+const emit = defineEmits();
+const jwtToken = localStorage.getItem('authToken'); // 假设存储在 localStorage
+
+// 第一部分：用户查询与管理
 // 定义用户类型
 interface User {
   id: number;
   username: string;
   email: string;
-  isAdmin: boolean;
+  role: string;
+  image: string;
 }
 
-// 模拟用户数据
-const users = ref<User[]>([
-  { id: 1, username: 'Alice', email: 'alice@example.com', isAdmin: false },
-  { id: 2, username: 'Bob', email: 'bob@example.com', isAdmin: true },
-  { id: 3, username: 'Charlie', email: 'charlie@example.com', isAdmin: false },
-]);
+// 用户数据
+const users = ref<User[]>([]); // 存储所有用户信息
+const searchQuery = ref(''); // 搜索框内容
+const filteredUsers = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase();
+  if (!query) {
+    return users.value; // 搜索框为空时返回全部用户
+  }
+  return users.value.filter((user) =>
+    user.username.toLowerCase().includes(query) ||
+    user.email.toLowerCase().includes(query) ||
+    user.role.toLowerCase().includes(query)
+  );
+});
+// 页面加载时获取用户信息
+const fetchUsers = async () => {
+  try {
+    const response = await axios.get(`/user/all`, {
+      headers: {
+        Authorization: `Bearer ${jwtToken}`, // 添加 JWT Token
+      },
+    });
+    users.value = response.data; // 将接口数据存入状态
+  } catch (error) {
+    console.error('Error fetching users:', error);
+  }
+};
+
+
+
 // 当前页码
 const currentPage = ref(1);
 // 每页显示的条数
 const pageSize = ref(5);
 // 处理排序逻辑（管理员优先）
 const sortedUsers = computed(() => {
-  return users.value.slice().sort((a, b) => {
-    if (a.isAdmin === b.isAdmin) return 0;
-    return a.isAdmin ? -1 : 1; // 管理员排在前面
+  return filteredUsers.value.slice().sort((a, b) => {
+    if (a.role === b.role) return 0;
+    return a.role ? 1 : -1; // 管理员排在前面
   });
 });
 // 获取当前页的用户
@@ -232,34 +313,28 @@ const paginatedUsers = computed(() => {
   return sortedUsers.value.slice(startIndex, endIndex);
 });
 
+
 // 分页切换事件
 const handlePageChange = (page: number) => {
   currentPage.value = page;
 };
-const searchQuery = ref('');
-const filteredUsers = computed(() => {
-  const query = searchQuery.value.trim().toLowerCase();
-  if (!query) {
-    return sortedUsers.value; // 如果搜索框为空，返回全部用户
-  }
-  return sortedUsers.value.filter((user) =>
-    user.username.toLowerCase().includes(query) ||
-    user.email.toLowerCase().includes(query)
-  );
-});
 
+
+// 第二部分：添加新用户
 // 定义新用户数据类型
 interface NewUser {
   username: string;
+  password_hash: string;
   email: string;
-  password: string;
+  role: number;
+  image: number[]; // 使用数字数组来表示二进制数据
 }
-
-// 新用户数据
 const newUser = ref<NewUser>({
-  username: '',
-  email: '',
-  password: '',
+  username: "",
+  email: "",
+  password_hash: "",
+  role: 0 , // 是否管理员
+  image: [] // 头像路径
 });
 
 // 控制弹窗的显示
@@ -276,27 +351,61 @@ const closeAddUserModal = () => {
 };
 
 // 提交新用户
-const submitNewUser = () => {
-  const newId = users.value.length + 1;
-  users.value.push({
-    id: newId,
-    username: newUser.value.username,
-    email: newUser.value.email,
-    isAdmin: false,
-  });
-  newUser.value = { username: '', email: '', password: '' }; // 清空表单
-  closeAddUserModal();
+const submitNewUser = async () => {
+  try {
+    // 校验数据完整性
+    if (!newUser.value.username || !newUser.value.email || !newUser.value.password_hash || !newUser.value.image || newUser.value.image.length === 0) {
+      return alert("请填写完整的用户信息！");
+    }
+
+    // 将数据组织为后端要求的格式
+    const requestData = {
+      username: newUser.value.username,
+      password_hash: newUser.value.password_hash, // 假设密码直接作为哈希值发送
+      email: newUser.value.email,
+      role: newUser.value.role,
+      image: newUser.value.image, // 直接使用已经存储的 image 数组（number[]）
+    };
+
+    // 调用后端 API
+    const response = await axios.post(`/user/register`, requestData, {
+      headers: {
+        Authorization: `Bearer ${jwtToken}`, // 添加 JWT Token
+        "Content-Type": "application/json", // 指定 JSON 格式
+      },
+    });
+
+    if (response.status === 200) {
+      alert("用户添加成功！");
+      // 清空表单
+      newUser.value = { username: "", email: "", password_hash: "", image: [], role: 0 };
+      showAddUserModal.value = false;
+      // 重新加载用户列表
+      fetchUsers();
+    }
+  } catch (error) {
+    console.error("Error registering user:", error);
+    alert("用户添加失败，请检查输入信息或稍后重试！");
+  }
 };
+
+
 
 // 删除用户
 const deleteUser = (userId: number) => {
   users.value = users.value.filter(user => user.id !== userId);
 };
 
-// 切换管理员权限
-const toggleAdmin = (user: User) => {
-  user.isAdmin = !user.isAdmin;
+const handleAvatarChange = (file: File) => {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const arrayBuffer = e.target?.result as ArrayBuffer; // 获取二进制数据（ArrayBuffer）
+    newUser.value.image = Array.from(new Uint8Array(arrayBuffer)); // 转换为数字数组
+  };
+  reader.readAsArrayBuffer(file); // 读取文件为二进制数据
 };
+
+
 
 // Formatting the current date
 const formattedDate = computed(() => {
@@ -332,10 +441,15 @@ const notifications = ref([
 const handleNotificationCommand = (notification) => {
   console.log('Notification clicked:', notification);
 };
-const router = useRouter();
+// Navigate to home route
 const goHome = () => {
-  router.push('/');
+  emit('goHome','Home');
+  console.log('Go Home');
 };
+
+onMounted(() => {
+  fetchUsers();
+});
 </script>
 
 
@@ -516,20 +630,6 @@ const goHome = () => {
   color: #3498db; /* 标题颜色 */
   margin: 0;
 }
-
-/* 优化输入框样式 */
-.custom-input .el-input__inner {
-  border-radius: 10px; /* 圆角输入框 */
-  border: 1px solid #dcdfe6;
-  padding: 12px 16px;
-  font-size: 14px; /* 优雅字体大小 */
-}
-
-.custom-input .el-input__inner:focus {
-  border-color: #3498db; /* 聚焦时高亮 */
-  box-shadow: 0 0 5px rgba(52, 152, 219, 0.5);
-}
-
 /* 表单间距调整 */
 .form-item {
   margin-bottom: 20px;
@@ -595,5 +695,127 @@ const goHome = () => {
 .custom-search-input .el-input__inner:focus {
   border-color: #3498db; /* 聚焦时高亮 */
   box-shadow: 0 0 5px rgba(52, 152, 219, 0.5);
+}
+/* 优化头像上传骨架与按钮间距 */
+.avatar-uploader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px; /* 调整骨架和按钮的间距 */
+}
+
+.avatar-preview {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 50%;
+  background-color: #f2f2f2; /* 提供骨架背景色 */
+  border: 1px solid #dcdfe6; /* 骨架边框颜色 */
+}
+
+.upload-trigger .el-button {
+  border-radius: 20px; /* 调整按钮更加圆润 */
+  font-size: 14px; /* 优化字体大小 */
+  background-color: #3498db; /* 主色调蓝色 */
+  color: #fff; /* 白色文字 */
+  transition: all 0.3s ease;
+  margin-left: 10px;
+}
+
+.upload-trigger .el-button:hover {
+  background-color: #217dbb; /* 深蓝色悬停效果 */
+}
+/* 修改头像上传按钮的样式 */
+.el-upload {
+  display: inline-block;
+  position: relative;
+}
+
+/* 表单项间距调整 */
+.form-item {
+  margin-bottom: 20px;
+}
+
+/* 自定义输入框 */
+.custom-input .el-input__inner {
+  border-radius: 10px; /* 圆角输入框 */
+  border: 1px solid #dcdfe6;
+  padding: 12px 16px;
+  font-size: 14px; /* 优雅字体大小 */
+}
+
+.custom-input .el-input__inner:focus {
+  border-color: #3498db; /* 聚焦时高亮 */
+  box-shadow: 0 0 5px rgba(52, 152, 219, 0.5);
+}
+
+/* 输入框和上传按钮布局 */
+.form-item {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  margin-bottom: 20px;
+}
+
+/* 按钮样式 */
+.submit-btn {
+  background-color: #3498db;
+  color: white;
+  border-radius: 20px;
+  padding: 10px 20px;
+  font-size: 16px;
+  font-weight: bold;
+  transition: all 0.3s ease;
+}
+
+.submit-btn:hover {
+  background-color: #217dbb;
+  transform: translateY(-2px);
+}
+
+.cancel-btn {
+  background-color: #e74c3c;
+  color: white;
+  border-radius: 20px;
+  padding: 10px 20px;
+  font-size: 16px;
+  font-weight: bold;
+  transition: all 0.3s ease;
+}
+
+.cancel-btn:hover {
+  background-color: #c0392b;
+}
+
+/* 弹窗样式 */
+.custom-dialog {
+  border-radius: 15px; /* 圆角设计 */
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); /* 增加阴影 */
+}
+
+/* 弹窗标题样式 */
+.dialog-header {
+  text-align: center;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eaeaea; /* 底部边框分割 */
+  margin-bottom: 20px;
+}
+
+.dialog-header h2 {
+  font-size: 24px; /* 加大标题字体 */
+  font-weight: bold;
+  color: #3498db; /* 标题颜色 */
+  margin: 0;
+}
+
+.el-switch {
+  margin-left: auto; /* 控制开关与文字的对齐 */
+}
+.form-item {
+  display: flex;
+  align-items: center; /* 垂直居中 */
+  justify-content: flex-start; /* 水平对齐 */
+  gap: 10px; /* 调整标题与控件之间的间距 */
+  margin-bottom: 20px; /* 控制整体间距 */
 }
 </style>

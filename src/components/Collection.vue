@@ -11,7 +11,7 @@
         </div>
       </div>
       <div class="header-right">
-        <el-button type="primary" :icon="House" circle size="large" @click="goHome" />
+        <el-button type="primary" :icon="House" circle size="large" @click="goHome()" />
         <el-dropdown trigger="click" @command="handleNotificationCommand">
           <span class="el-dropdown-link">
             <el-badge is-dot class="notification-badge" :offset="[-5,1]">
@@ -63,7 +63,7 @@
             <div class="action-buttons-group">
               <el-button size="small" type="success" icon="el-icon-download" @click="downloadDocument(scope.row.id)">下载</el-button>
               <el-button size="small" type="danger" icon="el-icon-delete" @click="deleteDocument(scope.row.id)" v-if="Role == 0">删除</el-button>
-              <el-button size="small" type="warning" icon="el-icon-edit" @click="editDocument(scope.row)" v-if="Role == 0">编辑</el-button>
+              <el-button size="small" type="warning" icon="el-icon-edit" @click="openEditDialog(scope.row)" v-if="Role == 0">编辑</el-button>
             </div>
           </template>
         </el-table-column>
@@ -197,20 +197,125 @@
     </span>
   </template>
 </el-dialog>
+
+<el-dialog
+  title="编辑文档"
+  v-model="editDialogVisible"
+  width="50%"
+  :before-close="closeEditDialog"
+  custom-class="custom-dialog"
+>
+  <!-- 美化标题 -->
+  <div class="dialog-header">
+    <h2 class="dialog-title">编辑文档信息</h2>
+    <p class="dialog-subtitle">请修改文档信息后提交</p>
+  </div>
+
+  <el-form :model="editingDocument" ref="formRef" label-width="120px">
+    <el-form-item
+      label="标题"
+      prop="title"
+      :rules="[{ required: true, message: '请输入标题', trigger: 'blur' }]"
+    >
+      <el-input
+        v-model="editingDocument.title"
+        placeholder="请输入标题"
+        class="custom-input"
+      ></el-input>
+    </el-form-item>
+    <el-form-item
+      label="作者"
+      prop="author"
+      :rules="[{ required: true, message: '请输入作者', trigger: 'blur' }]"
+    >
+      <el-input
+        v-model="editingDocument.author"
+        placeholder="请输入作者"
+        class="custom-input"
+      ></el-input>
+    </el-form-item>
+    <el-form-item
+      label="类型"
+      prop="docType"
+      :rules="[{ required: true, message: '请选择类型', trigger: 'change' }]"
+    >
+      <el-select
+        v-model="editingDocument.docType"
+        placeholder="请选择类型"
+        class="custom-select"
+      >
+        <el-option label="图书" value="Book"></el-option>
+        <el-option label="论文" value="Paper"></el-option>
+      </el-select>
+    </el-form-item>
+    <el-form-item
+      label="出版时间"
+      prop="publishDate"
+      :rules="[{ required: true, message: '请选择时间', trigger: 'change' }]"
+    >
+      <el-date-picker
+        v-model="editingDocument.publishDate"
+        type="date"
+        placeholder="选择出版时间"
+        format="YYYY-MM-DD"
+        class="custom-datepicker"
+      ></el-date-picker>
+    </el-form-item>
+
+    <!-- 新增上传文档 -->
+    <el-form-item label="上传新文档">
+      <el-upload
+        class="upload-demo"
+        drag
+        action="https://jsonplaceholder.typicode.com/posts/"
+        :limit="1"
+        :on-exceed="handleEditFileExceed"
+        multiple
+        :file-list="editFileList"
+        list-type="text"
+        :on-change="handleEditFileChange"
+        :on-remove="handleEditFileRemove"
+        :auto-upload="false"
+      >
+        <div class="drag-upload-box">
+          <i class="el-icon-upload"></i>
+          <div class="upload-text">将文件拖拽至此处，或点击上传</div>
+          <div class="upload-tip">最多上传 1 个文件</div>
+        </div>
+      </el-upload>
+    </el-form-item>
+  </el-form>
+
+  <template #footer>
+    <span class="dialog-footer">
+      <el-button @click="closeEditDialog" class="custom-button">取消</el-button>
+      <el-button
+        type="primary"
+        @click="submitEdit"
+        class="custom-button"
+      >
+        提交
+      </el-button>
+    </span>
+  </template>
+</el-dialog>
 </template>
 
 <script lang="ts" setup>
 import { ref, computed } from 'vue';
 import { reactive } from 'vue';
-import { useRouter } from 'vue-router';
 import { Message, House, Search,Upload,Download} from '@element-plus/icons-vue';
 import { ElMessageBox } from 'element-plus';
 import type { FormInstance } from 'element-plus';
 import { ElMessage } from 'element-plus';
 import axios from 'axios';
 import { useUserStore } from '../stores/user';
+import { defineEmits } from 'vue';
 
-const jwtToken = localStorage.getItem('authToken'); // 假设存储在 localStorage
+// 使用 defineEmits 来定义触发的事件
+const emit = defineEmits();
+const BatchDowload = ref('info');
+const jwtToken = localStorage.getItem('authToken'); // JWT存储在 localStorage
 const userStore = useUserStore();           // 引入用户状态
 const Role = userStore.user.Role;
 // 第一部分：搜索文档的逻辑处理
@@ -353,6 +458,107 @@ const deleteDocument = (id: number) => {
   });
 };
 
+// 编辑文档的逻辑
+
+// 表单数据，用于编辑文档
+// 编辑弹出框相关逻辑
+const editDialogVisible = ref(false); // 控制编辑弹出框可见性
+const editingDocument = reactive({
+  id: null,
+  title: '',
+  author: '',
+  docType: '',
+  publishDate: '', // ISO 字符串日期
+  pdfContent: '', // 编辑的新文件 Base64 字符串
+});
+const editFileList = ref([]); // 文件列表用于编辑上传
+
+// 打开编辑弹出框并初始化信息
+const openEditDialog = (doc) => {
+  editingDocument.id = doc.id;
+  editingDocument.title = doc.title || ''; // 初始化标题
+  editingDocument.author = doc.author || ''; // 初始化作者
+  editingDocument.docType = doc.type || ''; // 初始化类型
+  editingDocument.publishDate = doc.publishDate || ''; // 初始化出版时间
+  editingDocument.pdfContent = ''; // 清空之前的上传文件
+  editFileList.value = []; // 清空文件列表
+  editDialogVisible.value = true;
+};
+
+// 关闭编辑弹出框
+const closeEditDialog = () => {
+  editFileList.value = []; // 关闭时清空文件列表
+  editingDocument.id = null; // 清空 ID
+  editingDocument.title = ''; // 清空标题
+  editingDocument.author = ''; // 清空作者
+  editingDocument.docType = ''; // 清空类型
+  editingDocument.publishDate = ''; // 清空出版时间
+  editingDocument.pdfContent = ''; // 清空文件内容
+  editDialogVisible.value = false;
+};
+
+// 处理文件超出限制
+const handleEditFileExceed = (files, fileList) => {
+  if (files.length + fileList.length > 1) {
+    ElMessage.warning(`最多上传 1 个文件，当前已选择 ${fileList.length} 个文件`);
+  }
+};
+
+// 处理文件变更，读取 Base64 数据
+const handleEditFileChange = (file, fileList) => {
+  editFileList.value = fileList;
+
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    let result = event.target?.result as string;
+
+    // 移除 `data:<MIME>;base64,` 前缀
+    if (result?.startsWith("data:")) {
+      const base64StartIndex = result.indexOf("base64,") + 7;
+      result = result.substring(base64StartIndex);
+    }
+
+    editingDocument.pdfContent = result; // 存储 Base64 数据
+    console.log("上传的新文件 Base64:", editingDocument.pdfContent);
+  };
+
+  reader.readAsDataURL(file.raw);
+};
+
+// 删除上传文件
+const handleEditFileRemove = (file) => {
+  editingDocument.pdfContent = ''; // 移除文件时清空 Base64 数据
+  ElMessage.warning(`文件 ${file.name} 已移除`);
+};
+
+// 提交编辑文档的逻辑
+const submitEdit = async () => {
+  if (!editingDocument.title || !editingDocument.author || !editingDocument.docType || !editingDocument.publishDate) {
+    ElMessage.error('请填写完整的文档信息');
+    return;
+  }
+
+  try {
+    const jwtToken = localStorage.getItem('authToken');
+    if (!jwtToken) {
+      ElMessage.error('请先登录');
+      return;
+    }
+
+    const response = await axios.put(`/docs/${editingDocument.id}`, editingDocument, {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${jwtToken}`,
+      },
+    });
+    ElMessage.success('文档编辑成功');
+    closeEditDialog();
+  } catch (error) {
+    ElMessage.error('文档编辑失败，请稍后重试');
+  }
+};
+
+
 // 第二部分：上传文档的逻辑处理
 
 // 表单数据
@@ -494,17 +700,7 @@ const submitUpload = async () => {
 };
 
 // 第三部分：其他逻辑处理
-// Initialize router
-const router = useRouter();
-const BatchDowload = ref('info');
 
-
-// Mock data for notifications
-const notifications = ref([
-  { message: 'You have a new message from Dr. Alice Smith' },
-  { message: 'Your paper "AI and Ethics" has been downloaded 5 times' },
-  { message: 'You have a new follower: Dr. Bob Brown' },
-]);
 // 计算属性：格式化当前日期
 const formattedDate = computed(() => {
   const currentDate = new Date();
@@ -530,9 +726,17 @@ const formattedDate = computed(() => {
 
 // Navigate to home route
 const goHome = () => {
-  router.push('/');
+  emit('goHome','Home');
+  console.log('Go Home');
 };
 
+// 待完善：通知相关逻辑
+// Mock data for notifications
+const notifications = ref([
+  { message: 'You have a new message from Dr. Alice Smith' },
+  { message: 'Your paper "AI and Ethics" has been downloaded 5 times' },
+  { message: 'You have a new follower: Dr. Bob Brown' },
+]);
 // Handle dropdown commands (click event for individual notifications)
 const handleNotificationCommand = (notification) => {
   console.log('Notification clicked:', notification);
@@ -540,11 +744,6 @@ const handleNotificationCommand = (notification) => {
   return selectedRows
 };
 
-
-
-
-
-const editDocument = (doc) => console.log('Edit:', doc.title);
 
 </script>
 
@@ -735,5 +934,11 @@ const editDocument = (doc) => console.log('Edit:', doc.title);
 .custom-button:hover {
   background-color: #1e90ff;
   color: white;
+}
+.custom-dialog {
+  border-radius: 20px;
+  background-color: #ffffff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  padding: 20px;
 }
 </style>

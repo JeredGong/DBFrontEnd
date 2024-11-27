@@ -11,7 +11,7 @@
           </div>
         </div>
         <div class="header-right">
-          <el-button type="primary" :icon="House" circle size="large"  />
+          <el-button type="primary" :icon="House" circle size="large"  @click="goHome"/>
           <el-dropdown trigger="click" @command="handleNotificationCommand">
             <span class="el-dropdown-link">
               <el-badge is-dot class="notification-badge" :offset="[-5, 1]">
@@ -37,7 +37,7 @@
         <div class="published-section">
           <el-card class="paper-card" shadow="hover" body-style="padding: 8px">
             <div class="card-header centered">
-              <h3>图书借阅审核</h3>
+              <h3>图书借阅一览</h3>
             </div>
             <div class="table-container">
               <table class="paper-table">
@@ -46,7 +46,7 @@
                     <th>图书名称</th>
                     <th>作者</th>
                     <th>借阅者</th>
-                    <th>状态</th>
+                    <th>余量</th>
                     <th>操作</th>
                   </tr>
                 </thead>
@@ -59,10 +59,9 @@
                     <td>
                       <el-button
                         size="small"
-                        type="success"
-                        @click="approveBorrow(request)"
-                        :disabled="request.status === '已批准'"
-                      >批准借阅</el-button>
+                        type="primary"
+                        @click="confirmReturn(request)"
+                      >编辑信息</el-button>
                     </td>
                   </tr>
                 </tbody>
@@ -160,28 +159,47 @@
   <script lang="ts" setup>
   import { ref, computed } from 'vue';
   import { Message, House } from '@element-plus/icons-vue';
-  
-  // Mock data for borrow requests with index for initial order
-  const borrowRequests = ref([
-    { index: 0, title: 'Machine Learning Basics', author: 'Alice Smith', user: 'Alice', status: '待批准' },
-    { index: 1, title: 'Deep Learning Advanced', author: 'Bob Brown', user: 'Bob', status: '待批准' },
-    { index: 2, title: 'Natural Language Processing', author: 'Carol White', user: 'Carol', status: '待批准' },
-    { index: 3, title: 'AI Ethics and Society', author: 'Dan Black', user: 'Dan', status: '待批准' },
-    { index: 4, title: 'Quantum Computing Essentials', author: 'Eve Johnson', user: 'Eve', status: '待批准' },
-    { index: 5, title: 'Introduction to Robotics', author: 'Frank Green', user: 'Frank', status: '待批准' },
-    { index: 6, title: 'Augmented Reality Applications', author: 'Grace Blue', user: 'Grace', status: '待批准' }
-  ]);
-  // 模拟通知数据
-const notifications = ref([
-  { message: '您有一条新消息：Dr. Alice Smith' },
-  { message: '您的论文《AI与伦理》已被下载5次' },
-  { message: '新粉丝：Dr. Bob Brown关注了您' },
-]);
+  import { defineEmits } from 'vue';
+  import axios from 'axios';
+// 使用 defineEmits 来定义触发的事件
+const emit = defineEmits();
 
-// 处理通知点击事件
-const handleNotificationCommand = (notification) => {
-  console.log('Notification clicked:', notification);
-};
+// 定义图书借阅查看
+interface BorrowRequest {
+  id: number;
+  userID : number;
+  bookID : number;
+  borrowedAt : string;
+  returnedAt : string;
+}
+interface  AllBorrowRequest {
+  id: number;
+  username : string ;
+  title : string;
+  author : string;
+  
+  borrowedAt : string;
+  returnedAt : string;
+}
+  // 定义图书借阅查看的响应式数据
+  const borrowRequests = ref<BorrowRequest[]>([]);
+    const jwtToken = localStorage.getItem('authToken'); // JWT存储在 localStorage
+    // 向后端请求数据
+    const fetchBorrowRequests = async () => {
+      try {
+        const response = await axios.get(`/docs/search`, {
+        headers: {
+          Authorization: `Bearer ${jwtToken}`, // 添加 JWT Token
+        },
+      });
+        borrowRequests.value = response.data;
+      } catch (error) {
+        console.error('Error fetching borrow requests:', error);
+      }
+    };
+
+
+ 
   // Mock data for return requests with index for initial order
   const returnRequests = ref([
     { index: 0, title: 'AI in Healthcare', author: 'Alice Green', user: 'Alice', status: '待归还' },
@@ -214,47 +232,42 @@ const handleNotificationCommand = (notification) => {
     return `${year}年${month}${day}日`;
   });
   
-  // 排序函数，已批准/已归还/已确认的条目排到最下面，同时按 index 保持原始顺序
-  const sortEntries = () => {
-    borrowRequests.value.sort((a, b) => {
-      if (a.status === '已批准' && b.status !== '已批准') return 1;
-      if (a.status !== '已批准' && b.status === '已批准') return -1;
-      return a.index - b.index;
-    });
-    returnRequests.value.sort((a, b) => {
-      if (a.status === '已归还' && b.status !== '已归还') return 1;
-      if (a.status !== '已归还' && b.status === '已归还') return -1;
-      return a.index - b.index;
-    });
-    fileUploads.value.sort((a, b) => {
-      if (a.status === '已确认' && b.status !== '已确认') return 1;
-      if (a.status !== '已确认' && b.status === '已确认') return -1;
-      return a.index - b.index;
-    });
-  };
+ 
   
   // 更新状态并排序
-  const approveBorrow = (request) => {
-    request.status = '已批准';
-    sortEntries();
-  };
+  
   
   const confirmReturn = (request) => {
     request.status = '已归还';
-    sortEntries();
+   
   };
   
   const confirmFile = (file) => {
     file.status = '已确认';
-    sortEntries();
   };
   
   const viewFileDetails = (file) => {
     console.log('查看文件详情:', file.fileName);
   };
-  
-  // 初始排序
-  sortEntries();
+
+ // 模拟通知数据
+ const notifications = ref([
+  { message: '您有一条新消息：Dr. Alice Smith' },
+  { message: '您的论文《AI与伦理》已被下载5次' },
+  { message: '新粉丝：Dr. Bob Brown关注了您' },
+]);
+
+// 处理通知点击事件
+const handleNotificationCommand = (notification) => {
+  console.log('Notification clicked:', notification);
+};
+
+// Navigate to home route
+const goHome = () => {
+  emit('goHome','Home');
+  console.log('Go Home');
+};
+
   </script>
   
   <style scoped>

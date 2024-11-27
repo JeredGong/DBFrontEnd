@@ -83,7 +83,7 @@
   </div>
     <el-main>
       <keep-alive>
-          <component :is="currentComponent" />
+          <component :is="currentComponent" @goHome="handleClick"/>
       </keep-alive>
     </el-main>
 </el-container>
@@ -193,6 +193,7 @@ const rules = ref<Record<string, { required: boolean; message: string; trigger: 
 const currentComponent = ref('Home');
 const handleClick = (name: string) => {
   currentComponent.value = name;
+  console.log('currentComponent:', currentComponent.value);
 };
 
 
