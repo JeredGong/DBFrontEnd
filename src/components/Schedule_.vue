@@ -43,19 +43,22 @@
               <table class="paper-table">
                 <thead>
                   <tr>
+                    <th>图书唯一标识符</th>
                     <th>图书名称</th>
                     <th>作者</th>
                     <th>借阅者</th>
+                    <th>借阅时间</th>
                     <th>余量</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(request, index) in borrowRequests" :key="index">
+                  <tr v-for="(request, index) in allBorrowRequests" :key="index">
+                    <td>{{ request.id }}</td>
                     <td>{{ request.title }}</td>
                     <td>{{ request.author }}</td>
-                    <td>{{ request.user }}</td>
+                    <td>{{ request.username }}</td>
+                    <td>{{ request.borrowedAt }}</td>
                     <td>{{ request.status }}</td>
-                    
                   </tr>
                 </tbody>
               </table>
@@ -108,8 +111,13 @@
                       <el-button
                         size="small"
                         type="primary"
+                        @click="GetFile(file)"
+                      >查看文件</el-button>
+                      <el-button
+                        size="small"
+                        type="primary"
                         @click="openEditDialog(file)"
-                      >查看详情</el-button>
+                      >编辑文件</el-button>
                     </td>
                   </tr>
                 </tbody>
@@ -223,13 +231,13 @@
   </template>
   
   <script lang="ts" setup>
-  import { ref, computed,reactive } from 'vue';
+  import { ref, computed,reactive,onMounted } from 'vue';
   import { Message, House } from '@element-plus/icons-vue';
   import { defineEmits } from 'vue';
   import axios from 'axios';
 // 使用 defineEmits 来定义触发的事件
 const emit = defineEmits();
-
+const jwtToken = localStorage.getItem('authToken'); // JWT存储在 localStorage
 // 定义图书借阅查看
 interface BorrowRequest {
   id: number;
@@ -237,32 +245,66 @@ interface BorrowRequest {
   bookID : number;
   borrowedAt : string;
   returnedAt : string;
+  remain     : number;
 }
 interface  AllBorrowRequest {
   id: number;
-  username : string ;
+  username : string;
   title : string;
   author : string;
-  
   borrowedAt : string;
   returnedAt : string;
+  remain     : number;
 }
   // 定义图书借阅查看的响应式数据
   const borrowRequests = ref<BorrowRequest[]>([]);
-    const jwtToken = localStorage.getItem('authToken'); // JWT存储在 localStorage
+  const allBorrowRequests = ref<AllBorrowRequest[]>([]);
     // 向后端请求数据
     const fetchBorrowRequests = async () => {
-      try {
-        const response = await axios.get(`/docs/search`, {
-        headers: {
-          Authorization: `Bearer ${jwtToken}`, // 添加 JWT Token
-        },
+  try {
+    const response = await axios.get(`/book/borrowings/all`, {
+      headers: {
+        Authorization: `Bearer ${jwtToken}`, // 添加 JWT Token
+      },
+    });
+
+    if (response.status === 200 && response.data) {
+      borrowRequests.value = response.data;
+      const bookDetailsPromises = borrowRequests.value.map(async (borrow) => {
+        // 对于每一本书，请求书籍详情
+        const bookResponse = await axios.get(`/book/${borrow.bookID}`, {
+          headers: {
+            Authorization: `Bearer ${jwtToken}`, // 添加 JWT Token
+          },
+        });
+
+        // 请求用户详情
+        const userResponse = await axios.get(`/user/${borrow.userID}`, {
+          headers: {
+            Authorization: `Bearer ${jwtToken}`, // 添加 JWT Token
+          },
+        });
+
+        if (bookResponse.status === 200 && bookResponse.data && userResponse.status === 200 && userResponse.data) {
+          const alldata: AllBorrowRequest = {
+            id: borrow.id,
+            username: userResponse.data.username,
+            title: bookResponse.data.title,
+            author: bookResponse.data.author,
+            borrowedAt: borrow.borrowedAt,
+            returnedAt: borrow.returnedAt,
+            remain: borrow.remain,
+          };
+          allBorrowRequests.value.push(alldata);
+        }
       });
-        borrowRequests.value = response.data;
-      } catch (error) {
-        console.error('Error fetching borrow requests:', error);
-      }
-    };
+      await Promise.all(bookDetailsPromises);
+      console.log('All Borrow Requests:', allBorrowRequests.value);
+    }
+  } catch (error) {
+    console.error('Error fetching borrow requests:', error);
+  }
+};
   
 
 
@@ -312,7 +354,30 @@ interface  AllBorrowRequest {
       Message.error('文件确认失败,错误信息：'+error);
     }
   };
-
+  // 查看文件的逻辑
+  const GetFile = async (file) => {
+  try {
+    const response = await axios.get(`/docs/buffer/${file.id}`, {
+      headers: {
+        Authorization: `Bearer ${jwtToken}`, // 添加 JWT Token
+      },
+      responseType: 'blob', // 确保响应类型为 blob
+    });
+    if (response.status === 200) {
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${file.id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      Message.success('文件已查看成功');
+    }
+  } catch (error) {
+    console.error('Error fetching file uploads:', error);
+    Message.error('文件查看失败,错误信息：' + error);
+  }
+};
   // 拒绝文件的逻辑
   const refuseFile = async (fileid:number) => {
     try {
@@ -329,8 +394,6 @@ interface  AllBorrowRequest {
       Message.error('文件拒绝失败,错误信息：'+error);
     }
   };
-
-
   // 编辑文件的逻辑
   const editDialogVisible = ref(false); // 控制编辑弹出框可见性
   const editingDocument = reactive({
@@ -452,7 +515,10 @@ const goHome = () => {
   emit('goHome','Home');
   console.log('Go Home');
 };
-
+onMounted(() => {
+  fetchBorrowRequests();
+  fetchfileUploads();
+});
   </script>
   
   <style scoped>

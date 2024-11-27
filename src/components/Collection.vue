@@ -454,6 +454,12 @@ const DeleteDocument = async (id: number) => {
       headers: {
         Authorization: `Bearer ${jwtToken}`, // 添加 JWT Token
       },});
+    if(response.status == 200){
+      documents.value = documents.value.filter((doc) => doc.id !== id);
+      ElMessage.success('文档删除成功！');  
+    }
+    else{
+      ElMessage.error('文档删除失败，请稍后重试');}
     } catch (error) {
     console.error('文档删除失败:', error);
     ElMessage.error('文档删除失败，请稍后重试');}
