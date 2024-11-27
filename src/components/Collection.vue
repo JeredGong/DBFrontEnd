@@ -315,7 +315,7 @@ import { defineEmits } from 'vue';
 // 使用 defineEmits 来定义触发的事件
 const emit = defineEmits();
 const BatchDowload = ref('info');
-const jwtToken = localStorage.getItem('authToken'); // JWT存储在 localStorage
+const jwtToken = localStorage.getItem('authToken'); // 存储在 localStorage
 const userStore = useUserStore();           // 引入用户状态
 const Role = userStore.user.Role;
 // 第一部分：搜索文档的逻辑处理
@@ -331,7 +331,17 @@ interface Document {
 
 const searchQuery = ref('');            // 搜索关键字
 
-const documents = ref<Document[]>([]);  // 搜索结果文档列表
+const documents = ref<Document[]>([
+  {
+    id: 1,
+    title: 'Test',
+    type: 'Paper',
+    author: 'Test',
+    publishDate: '2021-09-01',
+    upload_date: '2021-09-01',
+    download_count: 10,
+  }
+]);  // 搜索结果文档列表
 
 // 搜索文档的逻辑
 const searchDocuments = async () => {
@@ -410,8 +420,8 @@ const downloadDocument = async (id: number) => {
     const response = await axios.get(`/docs/${id}`, {
       responseType: 'blob', // 指定返回二进制文件
     });
-
-    // 创建 Blob 对象
+    if(response.status == 200){
+      // 创建 Blob 对象
     const blob = new Blob([response.data], { type: 'application/pdf' });
     const url = window.URL.createObjectURL(blob);
 
@@ -427,6 +437,10 @@ const downloadDocument = async (id: number) => {
     document.body.removeChild(link);
 
     ElMessage.success('文档下载成功！');
+    }
+    else{
+      ElMessage.error('文档下载失败，请稍后重试');
+    }
   } catch (error) {
     console.error('文档下载失败:', error);
     ElMessage.error('文档下载失败，请稍后重试');

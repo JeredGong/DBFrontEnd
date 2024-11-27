@@ -47,7 +47,6 @@
                     <th>作者</th>
                     <th>借阅者</th>
                     <th>余量</th>
-                    <th>操作</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -56,13 +55,7 @@
                     <td>{{ request.author }}</td>
                     <td>{{ request.user }}</td>
                     <td>{{ request.status }}</td>
-                    <td>
-                      <el-button
-                        size="small"
-                        type="primary"
-                        @click="confirmReturn(request)"
-                      >编辑信息</el-button>
-                    </td>
+                    
                   </tr>
                 </tbody>
               </table>
@@ -71,45 +64,6 @@
         </div>
       </div>
   
-      <!-- 图书归还审核 -->
-      <div class="info-card-container">
-        <div class="published-section">
-          <el-card class="paper-card" shadow="hover" body-style="padding: 8px">
-            <div class="card-header centered">
-              <h3>图书归还审核</h3>
-            </div>
-            <div class="table-container">
-              <table class="paper-table">
-                <thead>
-                  <tr>
-                    <th>图书名称</th>
-                    <th>作者</th>
-                    <th>归还者</th>
-                    <th>状态</th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(request, index) in returnRequests" :key="index">
-                    <td>{{ request.title }}</td>
-                    <td>{{ request.author }}</td>
-                    <td>{{ request.user }}</td>
-                    <td>{{ request.status }}</td>
-                    <td>
-                      <el-button
-                        size="small"
-                        type="primary"
-                        @click="confirmReturn(request)"
-                        :disabled="request.status === '已归还'"
-                      >确认归还</el-button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </el-card>
-        </div>
-      </div>
   
       <!-- 上传文件确认 -->
       <div class="info-card-container">
@@ -122,28 +76,39 @@
               <table class="paper-table">
                 <thead>
                   <tr>
-                    <th>文件名称</th>
+                    <th>文档标题</th>
+                    <th>作者</th>
+                    <th>文档类型</th>
+                    <th>出版日期</th>
                     <th>上传者</th>
-                    <th>状态</th>
+                    <th>上传日期</th>
                     <th>操作</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="(file, index) in fileUploads" :key="index">
-                    <td>{{ file.fileName }}</td>
-                    <td>{{ file.uploader }}</td>
-                    <td>{{ file.status }}</td>
+                    <td>{{ file.title }}</td>
+                    <td>{{ file.author }}</td>
+                    <td>{{ file.docType }}</td>
+                    <td>{{ file.publishDate }}</td>
+                    <td>{{ file.uploadedBy }}</td>
+                    <td>{{ file.upload_date }}</td>
+
                     <td>
                       <el-button
                         size="small"
                         type="info"
-                        @click="confirmFile(file)"
-                        :disabled="file.status === '已确认'"
+                        @click="confirmFile(file.id)"
                       >确认文件</el-button>
                       <el-button
                         size="small"
+                        type="info"
+                        @click="refuseFile(file)"
+                      >拒绝文件</el-button>
+                      <el-button
+                        size="small"
                         type="primary"
-                        @click="viewFileDetails(file)"
+                        @click="openEditDialog(file)"
                       >查看详情</el-button>
                     </td>
                   </tr>
@@ -154,10 +119,111 @@
         </div>
       </div>
     </div>
+    <el-dialog
+  title="编辑文档"
+  v-model="editDialogVisible"
+  width="50%"
+  :before-close="closeEditDialog"
+  custom-class="custom-dialog"
+>
+  <!-- 美化标题 -->
+  <div class="dialog-header">
+    <h2 class="dialog-title">编辑文档信息</h2>
+    <p class="dialog-subtitle">请修改文档信息后提交</p>
+  </div>
+
+  <el-form :model="editingDocument" ref="formRef" label-width="120px">
+    <el-form-item
+      label="标题"
+      prop="title"
+      :rules="[{ required: true, message: '请输入标题', trigger: 'blur' }]"
+    >
+      <el-input
+        v-model="editingDocument.title"
+        placeholder="请输入标题"
+        class="custom-input"
+      ></el-input>
+    </el-form-item>
+    <el-form-item
+      label="作者"
+      prop="author"
+      :rules="[{ required: true, message: '请输入作者', trigger: 'blur' }]"
+    >
+      <el-input
+        v-model="editingDocument.author"
+        placeholder="请输入作者"
+        class="custom-input"
+      ></el-input>
+    </el-form-item>
+    <el-form-item
+      label="类型"
+      prop="docType"
+      :rules="[{ required: true, message: '请选择类型', trigger: 'change' }]"
+    >
+      <el-select
+        v-model="editingDocument.docType"
+        placeholder="请选择类型"
+        class="custom-select"
+      >
+        <el-option label="图书" value="Book"></el-option>
+        <el-option label="论文" value="Paper"></el-option>
+      </el-select>
+    </el-form-item>
+    <el-form-item
+      label="出版时间"
+      prop="publishDate"
+      :rules="[{ required: true, message: '请选择时间', trigger: 'change' }]"
+    >
+      <el-date-picker
+        v-model="editingDocument.publishDate"
+        type="date"
+        placeholder="选择出版时间"
+        format="YYYY-MM-DD"
+        class="custom-datepicker"
+      ></el-date-picker>
+    </el-form-item>
+
+    <!-- 新增上传文档 -->
+    <el-form-item label="上传新文档">
+      <el-upload
+        class="upload-demo"
+        drag
+        action="https://jsonplaceholder.typicode.com/posts/"
+        :limit="1"
+        :on-exceed="handleEditFileExceed"
+        multiple
+        :file-list="editFileList"
+        list-type="text"
+        :on-change="handleEditFileChange"
+        :on-remove="handleEditFileRemove"
+        :auto-upload="false"
+      >
+        <div class="drag-upload-box">
+          <i class="el-icon-upload"></i>
+          <div class="upload-text">将文件拖拽至此处，或点击上传</div>
+          <div class="upload-tip">最多上传 1 个文件</div>
+        </div>
+      </el-upload>
+    </el-form-item>
+  </el-form>
+
+  <template #footer>
+    <span class="dialog-footer">
+      <el-button @click="closeEditDialog" class="custom-button">取消</el-button>
+      <el-button
+        type="primary"
+        @click="submitEdit"
+        class="custom-button"
+      >
+        提交
+      </el-button>
+    </span>
+  </template>
+</el-dialog>
   </template>
   
   <script lang="ts" setup>
-  import { ref, computed } from 'vue';
+  import { ref, computed,reactive } from 'vue';
   import { Message, House } from '@element-plus/icons-vue';
   import { defineEmits } from 'vue';
   import axios from 'axios';
@@ -197,58 +263,171 @@ interface  AllBorrowRequest {
         console.error('Error fetching borrow requests:', error);
       }
     };
+  
 
 
- 
-  // Mock data for return requests with index for initial order
-  const returnRequests = ref([
-    { index: 0, title: 'AI in Healthcare', author: 'Alice Green', user: 'Alice', status: '待归还' },
-    { index: 1, title: 'Cybersecurity Basics', author: 'Bob White', user: 'Bob', status: '待归还' },
-    { index: 2, title: 'Machine Vision', author: 'Charlie Black', user: 'Charlie', status: '待归还' },
-    { index: 3, title: 'Data Science Fundamentals', author: 'Diana Brown', user: 'Diana', status: '待归还' },
-    { index: 4, title: 'Blockchain for Beginners', author: 'Edward Johnson', user: 'Edward', status: '待归还' },
-    { index: 5, title: 'Digital Transformation', author: 'Fiona White', user: 'Fiona', status: '待归还' },
-    { index: 6, title: 'IoT in Smart Cities', author: 'George Grey', user: 'George', status: '待归还' },
-    { index: 7, title: 'IoT in Smart Cities', author: 'George Grey', user: 'George', status: '待归还' },
-    { index: 8, title: 'IoT in Smart Cities', author: 'George Grey', user: 'George', status: '待归还' }
-  ]);
-  
-  // Mock data for file uploads with index for initial order
-  const fileUploads = ref([
-    { index: 0, fileName: 'Research_Paper_1.pdf', uploader: 'Alice', status: '待确认' },
-    { index: 1, fileName: 'AI_Thesis_Final.pdf', uploader: 'Bob', status: '待确认' },
-    { index: 2, fileName: 'ML_Report_Spring2024.docx', uploader: 'Carol', status: '待确认' },
-    { index: 3, fileName: 'NLP_Conference_Presentation.pptx', uploader: 'Dan', status: '待确认' },
-    { index: 4, fileName: 'Quantum_Physics_Overview.pdf', uploader: 'Eve', status: '待确认' },
-    { index: 5, fileName: 'Robotics_Workshop_Notes.pdf', uploader: 'Frank', status: '待确认' },
-    { index: 6, fileName: 'AR_Research_Project.pdf', uploader: 'Grace', status: '待确认' }
-  ]);
-  
-  const formattedDate = computed(() => {
-    const currentDate = new Date();
-    const day = currentDate.getDate();
-    const month = currentDate.toLocaleString('zh-CN', { month: 'long' });
-    const year = currentDate.getFullYear();
-    return `${year}年${month}${day}日`;
-  });
-  
- 
-  
+  // 定义上传文件查看与编辑、批准的逻辑在这里
+
+  // 请求上传文件的接口
+  interface FileUpload {
+    id: number;
+    title: string;
+    author: string;
+    docType: string;
+    publishDate: string;
+    uploadedBy: string;
+    upload_date: string;
+    download_count: number;
+  }
+
+  // 定义上传文件查看与编辑、批准的响应式数据
+  const fileUploads = ref<FileUpload[]>([]);
   // 更新状态并排序
-  
-  
-  const confirmReturn = (request) => {
-    request.status = '已归还';
-   
+  const fetchfileUploads = async () => {
+    try {
+      const response = await axios.get(`/docs/buffer`, {
+        headers: {
+          Authorization: `Bearer ${jwtToken}`, // 添加 JWT Token
+        },
+      });
+      fileUploads.value = response.data;
+    } catch (error) {
+      console.error('Error fetching file uploads:', error);
+    }
   };
   
-  const confirmFile = (file) => {
-    file.status = '已确认';
+  // 确认文件的逻辑
+  const confirmFile = async (fileid:number) => {
+    try {
+      const response = await axios.post(`/docs/buffer/${fileid}`, {
+        headers: {
+          Authorization: `Bearer ${jwtToken}`, // 添加 JWT Token
+        },
+      });
+      if(response.status === 200){
+        Message.success('文件已确认成功');
+      }
+    } catch (error) {
+      console.error('Error fetching file uploads:', error);
+      Message.error('文件确认失败,错误信息：'+error);
+    }
   };
-  
-  const viewFileDetails = (file) => {
-    console.log('查看文件详情:', file.fileName);
+
+  // 拒绝文件的逻辑
+  const refuseFile = async (fileid:number) => {
+    try {
+      const response = await axios.delete(`/docs/buffer/${fileid}`, {
+        headers: {
+          Authorization: `Bearer ${jwtToken}`, // 添加 JWT Token
+        },
+      });
+      if(response.status === 200){
+        Message.success('文件已拒绝成功');
+      }
+    } catch (error) {
+      console.error('Error fetching file uploads:', error);
+      Message.error('文件拒绝失败,错误信息：'+error);
+    }
   };
+
+
+  // 编辑文件的逻辑
+  const editDialogVisible = ref(false); // 控制编辑弹出框可见性
+  const editingDocument = reactive({
+  id: null,
+  title: '',
+  author: '',
+  docType: '',
+  publishDate: '', // ISO 字符串日期
+  pdfContent: '', // 编辑的新文件 Base64 字符串
+});
+  const editFileList = ref([]); // 文件列表用于编辑上传
+  // 打开编辑弹出框并初始化信息
+const openEditDialog = (doc) => {
+  editingDocument.id = doc.id;
+  editingDocument.title = doc.title || ''; // 初始化标题
+  editingDocument.author = doc.author || ''; // 初始化作者
+  editingDocument.docType = doc.docType || ''; // 初始化类型
+  editingDocument.publishDate = doc.publishDate || ''; // 初始化出版时间
+  editingDocument.pdfContent = ''; // 清空之前的上传文件
+  editFileList.value = []; // 清空文件列表
+  editDialogVisible.value = true;
+};
+
+// 关闭编辑弹出框
+const closeEditDialog = () => {
+  editFileList.value = []; // 关闭时清空文件列表
+  editingDocument.id = null; // 清空 ID
+  editingDocument.title = ''; // 清空标题
+  editingDocument.author = ''; // 清空作者
+  editingDocument.docType = ''; // 清空类型
+  editingDocument.publishDate = ''; // 清空出版时间
+  editingDocument.pdfContent = ''; // 清空文件内容
+  editDialogVisible.value = false;
+};
+
+// 处理文件超出限制
+const handleEditFileExceed = (files, fileList) => {
+  if (files.length + fileList.length > 1) {
+    Message.warning(`最多上传 1 个文件，当前已选择 ${fileList.length} 个文件`);
+  }
+};
+
+// 处理文件变更，读取 Base64 数据
+const handleEditFileChange = (file, fileList) => {
+  editFileList.value = fileList;
+
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    let result = event.target?.result as string;
+
+    // 移除 `data:<MIME>;base64,` 前缀
+    if (result?.startsWith("data:")) {
+      const base64StartIndex = result.indexOf("base64,") + 7;
+      result = result.substring(base64StartIndex);
+    }
+
+    editingDocument.pdfContent = result; // 存储 Base64 数据
+    console.log("上传的新文件 Base64:", editingDocument.pdfContent);
+  };
+
+  reader.readAsDataURL(file.raw);
+};
+
+// 删除上传文件
+const handleEditFileRemove = (file) => {
+  editingDocument.pdfContent = ''; // 移除文件时清空 Base64 数据
+  Message.warning(`文件 ${file.name} 已移除`);
+};
+
+// 提交编辑文档的逻辑
+const submitEdit = async () => {
+  if (!editingDocument.title || !editingDocument.author || !editingDocument.docType || !editingDocument.publishDate) {
+    Message.error('请填写完整的文档信息');
+    return;
+  }
+
+  try {
+    const jwtToken = localStorage.getItem('authToken');
+    if (!jwtToken) {
+      Message.error('请先登录');
+      return;
+    }
+
+    const response = await axios.put(`/docs/buffer/${editingDocument.id}`, editingDocument, {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${jwtToken}`,
+      },
+    });
+    if(response.status === 200){
+      Message.success('文档编辑成功');
+      closeEditDialog();
+    }
+  } catch (error) {
+    Message.error('文档编辑失败，请稍后重试');
+  }
+};
 
  // 模拟通知数据
  const notifications = ref([
@@ -256,7 +435,13 @@ interface  AllBorrowRequest {
   { message: '您的论文《AI与伦理》已被下载5次' },
   { message: '新粉丝：Dr. Bob Brown关注了您' },
 ]);
-
+const formattedDate = computed(() => {
+    const currentDate = new Date();
+    const day = currentDate.getDate();
+    const month = currentDate.toLocaleString('zh-CN', { month: 'long' });
+    const year = currentDate.getFullYear();
+    return `${year}年${month}${day}日`;
+  });
 // 处理通知点击事件
 const handleNotificationCommand = (notification) => {
   console.log('Notification clicked:', notification);
@@ -379,4 +564,67 @@ const goHome = () => {
   .table-container::-webkit-scrollbar-track {
     background-color: #f0f0f0;
   }
+
+  .dialog-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+  .dialog-title {
+  font-size: 24px;
+  font-weight: bold;
+  color: #1e90ff;
+  margin-bottom: 8px;
+}
+  .dialog-subtitle {
+  font-size: 14px;
+  color: #8c8c8c;
+}
+.custom-input .el-input__inner,
+.custom-select .el-select__inner,
+.custom-datepicker .el-date-editor {
+  border-radius: 30px;
+  padding: 12px 15px;
+  font-size: 14px;
+  border: 1px solid #d9d9d9;
+  background-color: #f5f5f5;
+  transition: all 0.3s ease;
+}
+/* 上传区域 */
+.drag-upload-box {
+  border: 2px dashed #cfd8e3;
+  border-radius: 15px;
+  padding: 40px;
+  text-align: center;
+  color: #606266;
+  background-color: #f0f5ff;
+  transition: border-color 0.3s ease;
+}
+
+.drag-upload-box:hover {
+  border-color: #1e90ff;
+}
+
+.drag-upload-box i {
+  font-size: 32px;
+  color: #1e90ff;
+  margin-bottom: 10px;
+}
+.custom-dialog {
+  border-radius: 20px;
+  background-color: #ffffff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  padding: 20px;
+}
+/* 按钮样式 */
+.custom-button {
+  border-radius: 20px;
+  padding: 8px 24px;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.custom-button:hover {
+  background-color: #1e90ff;
+  color: white;
+}
   </style>
