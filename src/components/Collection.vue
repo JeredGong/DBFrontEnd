@@ -419,6 +419,9 @@ const handleSelectionChange = (rows: Document[]) => {
 const downloadDocument = async (id: number) => {
   try {
     const response = await axios.get(`/docs/${id}`, {
+      headers: {
+        Authorization: `Bearer ${jwtToken}`, // 添加 JWT Token
+      },
       responseType: 'blob', // 指定返回二进制文件
     });
     if(response.status == 200){
@@ -525,7 +528,7 @@ const handleEditFileExceed = (files, fileList) => {
   }
 };
 
-// 处理文件变更，读取 Base64 数据
+// 处理文件变更
 const handleEditFileChange = (file, fileList) => {
   editFileList.value = fileList;
 

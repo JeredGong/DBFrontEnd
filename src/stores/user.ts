@@ -42,51 +42,59 @@ export const useUserStore = defineStore('user', () => {
     stopRefreshing(); // 停止定时刷新
   };
 
-  // 获取用户信息
-  const fetchUserInfo = async () => {
-    if (!authToken.value) {
-      console.warn('未登录，无法获取用户信息');
-      return;
-    }
+  // 获取用户基本信息
+const fetchUserInfo = async () => {
+  if (!authToken.value) {
+    console.warn('未登录，无法获取用户信息');
+    return;
+  }
+
+  try {
+    // 获取用户基本信息
+    const response = await axios.get('/user/info', {
+      headers: {
+        Authorization: `Bearer ${authToken.value}`,
+      },
+    });
+
+    // 更新用户基本信息
+    user.value.username = response.data.username;
+    user.value.useremail = response.data.email;
+    user.value.Role = response.data.role;
+
+    
+  } catch (error) {
+    console.error('获取用户信息失败:', error);
+    user.value.username = 'Unknown';
+    user.value.useremail = '';
+    user.value.Role = 1;
+  }
+  fetchUserAvatar(user.value.username); // 获取用户头像
+};
+
+// 获取用户头像
+const fetchUserAvatar = async (imagePath) => {
+  if (!imagePath) {
+    user.value.avatar = '/static/Group 2210.png'; // 如果没有图像路径，则使用默认头像
+    return;
+  }
+
+  try {
+    const imageResponse = await axios.get('/user/image', {
+      params: { image_path: imagePath },
+      responseType: 'blob', // 返回 Blob 数据
+    });
+
+    // 包装 Blob 为 URL 并更新 avatar
+    const imageBlob = imageResponse.data;
+    user.value.avatar = URL.createObjectURL(imageBlob); // 创建临时 URL
+  } catch (imageError) {
+    console.error('获取用户头像失败:', imageError);
+    user.value.avatar = '/static/Group 2210.png'; // 如果头像请求失败，使用默认头像
+  }
+};
+
   
-    try {
-      // 获取用户基本信息
-      const response = await axios.get('/user/info', {
-        headers: {
-          Authorization: `Bearer ${authToken.value}`,
-        },
-      });
-  
-      // 更新用户名
-      user.value.username = response.data.username;
-      user.value.useremail = response.data.email;
-      user.value.Role = response.data.role;
-  
-      // 异步获取用户头像图像
-      const imagePath = response.data.image; // 从用户信息中获取图像路径
-      if (imagePath) {
-        try {
-          const imageResponse = await axios.get('/user/image', {
-            params: { image_path: imagePath }, // 向 /user/imagefile 发送请求
-            responseType: 'blob', // 指定返回 Blob 数据
-          });
-  
-          // 包装 Blob 为 URL 并更新 avatar
-          const imageBlob = imageResponse.data;
-          user.value.avatar = URL.createObjectURL(imageBlob); // 创建临时 URL
-        } catch (imageError) {
-          console.error('获取用户头像失败:', imageError);
-          user.value.avatar = ''; // 图像请求失败时处理
-        }
-      } else {
-        user.value.avatar = ''; // 如果没有图像路径，则清空 avatar
-      }
-    } catch (error) {
-      console.error('获取用户信息失败:', error);
-      user.value.username = 'Unknown';
-      user.value.avatar = '';
-    }
-  };
   
 
   // 定时刷新逻辑
