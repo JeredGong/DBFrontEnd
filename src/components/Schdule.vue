@@ -250,7 +250,7 @@ import { ref, computed, onMounted} from 'vue';
 import { Message, House, Search } from '@element-plus/icons-vue';
 import { defineEmits } from 'vue';
 import axios from 'axios';
-
+axios.defaults.baseURL ='http://localhost:9876'
 // 使用 defineEmits 来定义触发的事件
 const emit = defineEmits();
 const jwtToken = localStorage.getItem('authToken'); // 假设存储在 localStorage

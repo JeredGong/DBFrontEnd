@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, watch, onMounted, onUnmounted } from 'vue';
 import axios from 'axios';
-
+axios.defaults.baseURL ='http://localhost:9876'
 export const useUserStore = defineStore('user', () => {
   // 用户状态
   const authToken = ref<string>(localStorage.getItem('authToken') || '');
@@ -19,8 +19,8 @@ export const useUserStore = defineStore('user', () => {
   const login = async (username: string, password: string) => {
     try {
       const response = await axios.post('/user/login', {
-        username,
-        password_hash: password,
+        username:username,
+        password_hash: password
       });
       const token = response.data; // 后端返回 Token
       authToken.value = token;
@@ -66,7 +66,7 @@ export const useUserStore = defineStore('user', () => {
       const imagePath = response.data.image; // 从用户信息中获取图像路径
       if (imagePath) {
         try {
-          const imageResponse = await axios.get('/user/imagefile', {
+          const imageResponse = await axios.get('/user/image', {
             params: { image_path: imagePath }, // 向 /user/imagefile 发送请求
             responseType: 'blob', // 指定返回 Blob 数据
           });

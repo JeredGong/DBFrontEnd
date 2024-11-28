@@ -258,6 +258,7 @@
         type="date"
         placeholder="选择出版时间"
         format="YYYY-MM-DD"
+        :value-format="'yyyy-MM-dd'"  
         class="custom-datepicker"
       ></el-date-picker>
     </el-form-item>
@@ -311,7 +312,7 @@ import { ElMessage } from 'element-plus';
 import axios from 'axios';
 import { useUserStore } from '../stores/user';
 import { defineEmits } from 'vue';
-
+axios.defaults.baseURL ='http://localhost:9876'
 // 使用 defineEmits 来定义触发的事件
 const emit = defineEmits();
 const BatchDowload = ref('info');
@@ -489,7 +490,7 @@ const editingDocument = reactive({
   author: '',
   docType: '',
   publishDate: '', // ISO 字符串日期
-  pdfContent: '', // 编辑的新文件 Base64 字符串
+  pdfContent: new Uint8Array(), // 编辑的新文件 Base64 字符串
 });
 const editFileList = ref([]); // 文件列表用于编辑上传
 
@@ -500,7 +501,7 @@ const openEditDialog = (doc) => {
   editingDocument.author = doc.author || ''; // 初始化作者
   editingDocument.docType = doc.type || ''; // 初始化类型
   editingDocument.publishDate = doc.publishDate || ''; // 初始化出版时间
-  editingDocument.pdfContent = ''; // 清空之前的上传文件
+  editingDocument.pdfContent = new Uint8Array();; // 清空之前的上传文件
   editFileList.value = []; // 清空文件列表
   editDialogVisible.value = true;
 };
@@ -513,7 +514,7 @@ const closeEditDialog = () => {
   editingDocument.author = ''; // 清空作者
   editingDocument.docType = ''; // 清空类型
   editingDocument.publishDate = ''; // 清空出版时间
-  editingDocument.pdfContent = ''; // 清空文件内容
+  editingDocument.pdfContent = new Uint8Array();; // 清空文件内容
   editDialogVisible.value = false;
 };
 
@@ -530,24 +531,23 @@ const handleEditFileChange = (file, fileList) => {
 
   const reader = new FileReader();
   reader.onload = (event) => {
-    let result = event.target?.result as string;
+    let result = event.target?.result;
 
-    // 移除 `data:<MIME>;base64,` 前缀
-    if (result?.startsWith("data:")) {
-      const base64StartIndex = result.indexOf("base64,") + 7;
-      result = result.substring(base64StartIndex);
+    // 这里的 result 已经是 ArrayBuffer，我们可以直接处理它
+    if (result instanceof ArrayBuffer) {
+      // 将 ArrayBuffer 转为 Uint8Array（二进制数组）
+      const uint8Array = new Uint8Array(result);
+      editingDocument.pdfContent = uint8Array; // 存储二进制数据
+      console.log("上传的新文件二进制数据:", editingDocument.pdfContent);
     }
-
-    editingDocument.pdfContent = result; // 存储 Base64 数据
-    console.log("上传的新文件 Base64:", editingDocument.pdfContent);
   };
 
-  reader.readAsDataURL(file.raw);
+  reader.readAsArrayBuffer(file.raw); // 使用 readAsArrayBuffer 读取文件
 };
 
 // 删除上传文件
 const handleEditFileRemove = (file) => {
-  editingDocument.pdfContent = ''; // 移除文件时清空 Base64 数据
+  editingDocument.pdfContent = new Uint8Array(); // 清空二进制数据
   ElMessage.warning(`文件 ${file.name} 已移除`);
 };
 
@@ -565,18 +565,34 @@ const submitEdit = async () => {
       return;
     }
 
-    const response = await axios.put(`/docs/${editingDocument.id}`, editingDocument, {
+    // 创建一个 JSON 对象
+    const documentData = {
+      title: editingDocument.title,
+      author: editingDocument.author,
+      docType: editingDocument.docType,
+      publishDate: editingDocument.publishDate,
+      pdfContent: Array.from(editingDocument.pdfContent) // 将 Uint8Array 转换为普通数组
+    };
+    console.log(documentData.publishDate);
+    // 发送 PUT 请求，上传 JSON 数据
+    const response = await axios.put(`/docs/${editingDocument.id}`, documentData, {
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${jwtToken}`,
+        'Authorization': `Bearer ${jwtToken}`,
       },
     });
-    ElMessage.success('文档编辑成功');
+    if(response.status == 200){
+      ElMessage.success('文档编辑成功');
+    }
+    else{
+      ElMessage.error('文档编辑失败，请稍后重试');
+    }
     closeEditDialog();
   } catch (error) {
     ElMessage.error('文档编辑失败，请稍后重试');
   }
 };
+
 
 
 // 第二部分：上传文档的逻辑处理
@@ -586,8 +602,8 @@ const documentForm = reactive({
   title: '',
   author: '',
   docType: '',
-  publishDate: '', // ISO 字符串日期
-  pdfContent: '', // 文件的 Base64 字符串
+  publishDate: new Date(), // ISO 字符串日期
+  pdfContent: new Uint8Array(), // 文件的 Base64 字符串
 });
 
 // 一些状态变量
@@ -602,40 +618,35 @@ const currentStep = ref(1); // 当前步骤
 
 
 // 文件上传的逻辑，首先将上传的文件保存到表单
-const handleFileChange = (file, fileList) => {
-  fileList.value = fileList;
+const handleFileChange = (file, filelist) => {
+  fileList.value = filelist;
 
   const reader = new FileReader();
   reader.onload = (event) => {
-    let result = event.target?.result as string;
+    let result = event.target?.result;
 
-    // 动态移除 `data:<MIME>;base64,` 前缀
-    if (result?.startsWith("data:")) {
-      const base64StartIndex = result.indexOf("base64,") + 7; // 找到 Base64 数据的起始位置
-      result = result.substring(base64StartIndex);
+    // 这里的 result 已经是 ArrayBuffer，我们可以直接处理它
+    if (result instanceof ArrayBuffer) {
+      // 将 ArrayBuffer 转为 Uint8Array（二进制数组）
+      const uint8Array = new Uint8Array(result);
+      documentForm.pdfContent = uint8Array; // 存储二进制数据
+      console.log("上传的新文件二进制数据:", documentForm.pdfContent);
     }
-
-    documentForm.pdfContent = result; // 存储纯 Base64 数据
-    console.log("去除前缀后的 Base64 内容:", documentForm.pdfContent);
   };
-
-  // 读取文件为 Base64 数据
-  reader.readAsDataURL(file.raw);
+  reader.readAsArrayBuffer(file.raw); // 使用 readAsArrayBuffer 读取文件
 };
 
 //文件预览的逻辑
 const handlePreview = (file) => {
-  const pdfContent = documentForm.pdfContent; // 获取 Base64 内容
-  if (!pdfContent) {
+  const pdfContent = documentForm.pdfContent; // 获取二进制内容 (Uint8Array)
+  
+  if (!pdfContent || pdfContent.length === 0) {
     console.error('未找到 PDF 内容');
     return;
   }
 
-  // 将 Base64 转换为 Blob
-  const byteCharacters = atob(pdfContent); // 解码 Base64
-  const byteNumbers = new Array(byteCharacters.length).fill(0).map((_, i) => byteCharacters.charCodeAt(i));
-  const byteArray = new Uint8Array(byteNumbers);
-  const blob = new Blob([byteArray], { type: 'application/pdf' });
+  // 直接将 pdfContent (Uint8Array) 作为 Blob 数据源
+  const blob = new Blob([pdfContent], { type: 'application/pdf' });
 
   // 创建临时 URL
   const url = URL.createObjectURL(blob);
@@ -651,6 +662,7 @@ const handlePreview = (file) => {
   document.body.removeChild(link);
   URL.revokeObjectURL(url); // 释放 URL
 };
+
 
 
 // 文件超出限制的逻辑
@@ -680,6 +692,7 @@ const nextStep = () => {
   formRef.value.validate((valid) => {
     if (valid) {
       currentStep.value++;
+      console.log(documentForm.publishDate);
     } else {
       ElMessage.error('请填写完整的文档信息');
     }
@@ -695,22 +708,35 @@ const handleRemove = (file) => {
 
 // 提交上传的逻辑，发送 POST 请求
 const submitUpload = async () => {
-  if (!documentForm.pdfContent) {
+  if (!documentForm.pdfContent || documentForm.pdfContent.length === 0) {
     ElMessage.error('请上传文件');
     return;
   }
+
   try {
     const jwtToken = localStorage.getItem('authToken'); // 获取 JWT Token
-    if(!jwtToken){
+    if (!jwtToken) {
       ElMessage.error('请先登录');
       return;
     }
-    const response = await axios.post('/docs', documentForm, {
+
+    // 将 pdfContent (Uint8Array) 转换为普通数组 (可以被 JSON 序列化)
+    const documentData = {
+      title: documentForm.title,
+      author: documentForm.author,
+      docType: documentForm.docType,
+      publishDate: handleDateChange(documentForm.publishDate),
+      pdfContent: Array.from(documentForm.pdfContent) // 将 Uint8Array 转换为普通数组
+    };
+
+    // 发送 POST 请求，上传 JSON 数据
+    const response = await axios.post('/docs', documentData, {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${jwtToken}`,
       },
     });
+
     ElMessage.success('文档上传成功');
     console.log('服务器响应:', response.data);
   } catch (error) {
@@ -718,6 +744,7 @@ const submitUpload = async () => {
     ElMessage.error('文档上传失败，请稍后重试');
   }
 };
+
 
 // 第三部分：其他逻辑处理
 
@@ -750,6 +777,7 @@ const goHome = () => {
   console.log('Go Home');
 };
 
+
 // 待完善：通知相关逻辑
 // Mock data for notifications
 const notifications = ref([
@@ -764,7 +792,19 @@ const handleNotificationCommand = (notification) => {
   return selectedRows
 };
 
+const handleDateChange = (date) => {
+  // 获取年份
+  const year = date.getFullYear();
 
+  // 获取该日期的当年第一天
+  const firstDayOfYear = new Date(year, 0, 1);
+
+  // 计算该日期是该年中的第几天
+  const dayOfYear = Math.floor((date.getTime() - firstDayOfYear.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+  // 返回结果：[年份, 第X天]
+  return [year, dayOfYear];
+};
 </script>
 
 <style scoped>

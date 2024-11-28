@@ -176,7 +176,7 @@ import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { Message } from '@element-plus/icons-vue';
 import { useUserStore } from '../stores/user';
 import axios from 'axios';
-
+axios.defaults.baseURL ='http://localhost:9876'
 const userStore = useUserStore();           // 引入用户状态
 // 定义统计信息类型
 interface StatisticsResponse {

@@ -48,16 +48,19 @@
   <h3 class="box-title">头像设置</h3>
   <div class="avatar-container">
     <el-avatar src="/static/Group 2210.png" size="100" shape="circle" />
-    <button @click="uploadAvatar" class="custom-button">
-      更换头像
-    </button>
-    <input
-      type="file"
-      ref="avatarInput"
-      @change="handleAvatarChange"
-      accept="image/*"
-      style="display: none"
-    />
+    <el-upload
+          action="https://jsonplaceholder.typicode.com/user/image"
+          :show-file-list="false"
+          :method="'put'"
+          :limit="1"
+          :on-change="handleAvatarChange"
+        >
+          <button
+            class="custom-button"
+            >
+            更换头像
+          </button>
+        </el-upload>
   </div>
 </div>
 
@@ -120,6 +123,8 @@ import { ref, computed } from "vue";
 import { ElMessage } from "element-plus";
 import { useRouter } from "vue-router";
 import { Message, House } from "@element-plus/icons-vue";
+import axios from 'axios';
+axios.defaults.baseURL ='http://localhost:9876'
 
 // 用户名表单
 const form = ref({ username: "Dagank" });
@@ -150,28 +155,48 @@ const handleAvatarChange = (event: Event) => {
 };
 
 // 更新用户名
-const updateUsername = () => {
-  ElMessage.success(`Username updated to: ${form.value.username}`);
-};
+const updateUsername = async () => {
+      try {
+        const response = await axios.put('https://jsonplaceholder.typicode.com/user/username', {
+          username: form.value.username
+        });
+        console.log('Username updated:', response.data);
+        ElMessage.success('Username updated successfully!');
+      } catch (error) {
+        console.error('Error updating username:', error);
+        ElMessage.error('Error updating username');
+      }
+    };
 
 // 更新密码
-const updatePassword = () => {
-  const { currentPassword, newPassword, confirmPassword } = passwordForm.value;
+const updatePassword = async () => {
+      const { currentPassword, newPassword, confirmPassword } = passwordForm.value;
 
-  if (!currentPassword || !newPassword || !confirmPassword) {
-    ElMessage.error("All fields are required");
-    return;
-  }
-  if (newPassword !== confirmPassword) {
-    ElMessage.error("New password and confirmation do not match");
-    return;
-  }
+      if (!currentPassword || !newPassword || !confirmPassword) {
+        ElMessage.error('All fields are required');
+        return;
+      }
 
-  ElMessage.success("Password updated successfully!");
-  passwordForm.value.currentPassword = "";
-  passwordForm.value.newPassword = "";
-  passwordForm.value.confirmPassword = "";
-};
+      if (newPassword !== confirmPassword) {
+        ElMessage.error('New password and confirmation do not match');
+        return;
+      }
+
+      try {
+        const response = await axios.put('https://jsonplaceholder.typicode.com/user/password', {
+          currentPassword,
+          newPassword
+        });
+        console.log('Password updated:', response.data);
+        ElMessage.success('Password updated successfully!');
+        passwordForm.value.currentPassword = '';
+        passwordForm.value.newPassword = '';
+        passwordForm.value.confirmPassword = '';
+      } catch (error) {
+        console.error('Error updating password:', error);
+        ElMessage.error('Error updating password');
+      }
+    };
 
 // 消息处理与日期计算
 const notifications = ref([
@@ -361,4 +386,7 @@ const handleNotificationCommand = (notification) => {
 .custom-button:active {
   transform: translateY(0);
 }
+
+
 </style>
+
