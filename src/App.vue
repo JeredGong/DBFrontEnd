@@ -4,10 +4,10 @@
   <div class="aside" >
     <div class="UserInfoBox">
         <div class="UserProfileBox">
-            <img src="/static/Group 2210.png" alt="UserProfile" />
+            <img :src="userStore.user.avatar" :alt="userStore.user.username+'Profile'" />
             </div>
             <div style=" width:80px; height: 28px; margin-top: 5px; " class="Username">
-            Dagank 
+            {{userStore.user.username}} 
             </div>
         </div>
     <div class="MenuBox" style="margin-top:40px ; margin-left: 42px;" @click="handleClick('Home')">
@@ -40,16 +40,25 @@
             Upload
         </div>
     </div>
-    <div class="MenuBox" style="margin-top:27px ; margin-left: 42px;" @click="handleClick('Schdule')">
+    <el-dropdown @command="handleClick">
+    <div class="MenuBox" style="margin-top:27px ; margin-left: 42px;">
         <div class="MenuIcon">
-            <el-icon :size=21 >
-            <Calendar />
-        </el-icon>
+            <el-icon :size=21>
+                <Calendar />
+            </el-icon>
         </div>
         <div class="MenuText">
             Schedule
         </div>
     </div>
+    <template #dropdown>
+        <el-dropdown-menu>
+            <el-dropdown-item command="Schedule">借阅图书</el-dropdown-item>
+            <el-dropdown-item command="Schdule">用户管理</el-dropdown-item>
+            <el-dropdown-item command="Schedule_">借阅管理</el-dropdown-item>
+        </el-dropdown-menu>
+    </template>
+    </el-dropdown>
     <div class="MenuBox" style="margin-top:27px ; margin-left: 42px;" @click="handleClick('Settings')">
         <div class="MenuIcon">
             <el-icon :size=21 >
@@ -74,10 +83,12 @@
   </div>
     <el-main>
       <keep-alive>
-          <component :is="currentComponent" />
+          <component :is="currentComponent" @goHome="handleClick"/>
       </keep-alive>
     </el-main>
 </el-container>
+
+<!-- Login Drawer,处理登录的逻辑 -->
 <el-drawer
 v-model="drawerVisible"
 title=""
@@ -88,41 +99,41 @@ direction="ltr"
 >
 <div class="login-container">
   <!-- Logo Section -->
-  <div class="logo">LOGO</div>
+  <div class="logo">实验室资料管理系统</div>
 
   <!-- Title and Description -->
-  <h2 class="login-title">Login with Lorem</h2>
+  <h2 class="login-title">登录界面</h2>
   <p class="login-description">
-    Lorem Ipsum is simply dummy text of the printing and typesetting industry.
+    实验室资料管理系统——登录界面
   </p>
 
   <!-- Form Section -->
   <div class="login-form">
     <el-form :model="loginForm" :rules="rules" ref="loginFormRef" label-width="120px">
-      <el-form-item label="User name" prop="username">
+      <el-form-item label="用户名" prop="username">
         <el-input
           v-model="loginForm.username"
-          placeholder="Enter your username"
+          placeholder="请输入用户名"
           class="rounded-input"
           clearable
         ></el-input>
       </el-form-item>
-      <el-form-item label="Password" prop="password">
+      <el-form-item label="密码" prop="password">
         <el-input
           v-model="loginForm.password"
           type="password"
-          placeholder="Enter your password"
+          placeholder="请输入密码"
           class="rounded-input"
           show-password
         ></el-input>
       </el-form-item>
       <!-- Additional Options -->
       <div class="options">
-        <el-checkbox v-model="rememberMe">Remember me?</el-checkbox>
-        <a href="#" class="forgot-password">Forgot Password?</a>
+        <el-checkbox v-model="rememberMe">记住账户</el-checkbox>
+        <a href="#" class="forgot-password">忘记密码?</a>
       </div>
       <!-- Button Section -->
-      <el-button type="primary" @click="handleLogin" class="login-button" size="large">
+      <el-button type="primary" @click="handleLogin()" class="login-button" size="large">
         LogIn
       </el-button>
     </el-form>
@@ -131,67 +142,100 @@ direction="ltr"
 </el-drawer>
 </div>
 </template>
+
+
 <script lang="ts">
-import { defineComponent, ref } from 'vue';
-import { Collection, House, UploadFilled, Calendar, Setting, Remove, Top } from '@element-plus/icons-vue';
+// 组件引入与渲染，不能使用setup
+
 import Home from './components/Home.vue';
 import Collections from './components/Collection.vue';
 import Schdule from './components/Schdule.vue';
+import Settings from './components/Settings.vue';
+import Schedule from './components/Schedule.vue';
+import Schedule_ from './components/Schedule_.vue';
+import { defineComponent} from 'vue';
 export default defineComponent({
 components: {
   House,
-  Collection,
-  UploadFilled,
-  Calendar,
-  Setting,
   Remove,
   Home,
-  Top,
   Collections,
-  Schdule
-},
-data() {
-  return {
-    currentComponent: 'Home'
-  };
-},
-methods: {
-  handleClick(name: string) {
-    this.currentComponent = name;
-  }
-},
-setup() {
-  // 使用 ref 创建响应式变量，并添加类型注解
-  const drawerVisible = ref<boolean>(false);
-  const LogStatus = ref<string>('Log in');
-  const loginForm = ref<{ username: string; password: string }>({
-    username: '1234',
-    password: '1234'
-  });
-  // 定义规则的类型
-  const rules = ref<Record<string, { required: boolean; message: string; trigger: string }[]>>({
-    username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-    password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
-  });
-
-
-  const handleLog = (): void => {
-    if (LogStatus.value === 'Log in') {
-      drawerVisible.value = true;
-    } else {
-      // 弹窗提示，是否退出登录
-      LogStatus.value = 'Log in';
-    }
-  };
-  
-  return {
-    drawerVisible,
-    LogStatus,
-    loginForm,
-    rules,
-    handleLog
-  };
+  Schdule,
+  Settings,
+  Schedule,
+  Schedule_
 }
+});
+</script>
+
+
+<script lang="ts" setup>
+import { ref, onMounted, onUnmounted, computed} from 'vue';
+import { Collection, House, UploadFilled, Calendar, Setting, Remove, Top } from '@element-plus/icons-vue';
+import { useUserStore } from './stores/user';
+// 定义响应式变量
+const userStore = useUserStore();           // 引入用户状态
+const drawerVisible = ref<boolean>(false);  // 控制登录抽屉的显示与隐藏
+const LogStatus = computed(() => (userStore.authToken ? 'Log Out' : 'Log in'));
+// 定义登录表单的数据，使用ref创建响应式变量，双向绑定表单数据
+const loginForm = ref<{ username: string; password: string }>({
+  username: '',
+  password: ''
+});
+
+// 定义输入规则的类型
+const rules = ref<Record<string, { required: boolean; message: string; trigger: string }[]>>({
+  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
+});
+
+// 定义切换组件的逻辑
+const currentComponent = ref('Home');
+const handleClick = (name: string) => {
+  currentComponent.value = name;
+  console.log('currentComponent:', currentComponent.value);
+};
+
+
+// 定义登录/注销的逻辑
+const handleLog = (): void => {
+  if (LogStatus.value === 'Log in') {
+    drawerVisible.value = true;
+  } else {
+    // 注销逻辑，清除 Token 和用户信息，更新登录状态
+    try{
+      userStore.logout();
+      alert('退出成功！');
+    } catch (error) {
+      console.error('退出失败:', error);
+    }
+  }
+};
+
+// 处理登录的逻辑
+const handleLogin = async () => {
+  try {
+    // 发送 POST 请求到后端
+    await userStore.login(loginForm.value.username, loginForm.value.password); // 调用 userStore 的 login 方法
+    alert('登录成功！');
+    drawerVisible.value = false; // 关闭登录抽屉
+  } catch (error) {
+    console.error('登录失败:', error);
+    alert('登录失败，请检查用户名或密码');
+  }
+};
+
+// 生命周期：在组件挂载时获取用户信息并启动刷新
+onMounted(() => {
+  if (userStore.authToken) {
+    userStore.fetchUserInfo(); // 获取用户信息
+    userStore.startRefreshing(); // 开启定时刷新
+  }
+});
+
+// 在组件卸载时停止刷新
+onUnmounted(() => {
+  userStore.stopRefreshing();
 });
 </script>
 
@@ -250,6 +294,8 @@ cursor: pointer;
 transition: background-color 0.3s, color 0.3s;
 background-color: transparent;
 box-sizing: border-box;
+outline: none; /* 去除默认的焦点框 */
+border: none;  /* 去除可能的边框 */
 }
 .MenuBox:hover {
 background-color: #3498db;
@@ -355,5 +401,23 @@ transition: all 0.3s;
 
 .login-button:hover {
 background-color: #1565c0;
+}
+
+
+.el-dropdown-menu {
+    background-color: #fff;
+    border-radius: 5px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.el-dropdown-item {
+    font-size: 14px;
+    color: #333;
+    padding: 8px 15px;
+}
+
+.el-dropdown-item:hover {
+    background-color: #3498db;
+    color: white;
 }
 </style>

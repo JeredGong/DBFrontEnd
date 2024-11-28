@@ -41,7 +41,7 @@
                   <div class="card-header">最近发表的论文数</div>
                 </template>
                 <div class="card-content">
-                  <p>本月共发表论文数：12</p>
+                  <p>本月共发表论文数：{{ statistics.countDocs }}</p>
                 </div>
               </el-card>
             </el-col>
@@ -49,10 +49,10 @@
             <el-col :span="8">
               <el-card class="statistic-card" shadow="hover">
                 <template #header>
-                  <div class="card-header">最近发表的著作数</div>
+                  <div class="card-header">最近下载的论文数</div>
                 </template>
                 <div class="card-content">
-                  <p>本月共发表著作数：5</p>
+                  <p>本月共下载论文数：{{statistics.countDocs}}</p>
                 </div>
               </el-card>
             </el-col>
@@ -63,7 +63,7 @@
                   <div class="card-header">最近借阅的图书数</div>
                 </template>
                 <div class="card-content">
-                  <p>本月共借阅图书数：30</p>
+                  <p>本月共借阅图书数：{{statistics.countBook}}</p>
                 </div>
               </el-card>
             </el-col>
@@ -172,10 +172,41 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref } from 'vue';
+import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { Message } from '@element-plus/icons-vue';
+import { useUserStore } from '../stores/user';
+import axios from 'axios';
+axios.defaults.baseURL ='http://localhost:9876'
+const userStore = useUserStore();           // 引入用户状态
+// 定义统计信息类型
+interface StatisticsResponse {
+  countBook: number;
+  countDocs: number;
+}
+// 定义统计信息量
+const statistics = ref<StatisticsResponse>({
+  countBook: 0,
+  countDocs: 0,
+});
+const error = ref<string | null>(null);
+// 获取统计数据的函数
+const fetchStatistics = async () => {
+  error.value = null;
+  try {
+    const response = await axios.get('/stat', {
+      headers: {
+        Authorization: `Bearer`+ userStore.authToken  // 认证令牌
+      }
+    });
+    // 更新统计数据
+    statistics.value = response.data;
+  } catch (err: any) {
+    console.error('获取统计信息失败:', err);
+    error.value = err.response?.data?.error || '获取统计信息失败';
+  }
+};
 
-// Formatting the current date
+// 计算当前的格式化日期
 const formattedDate = computed(() => {
   const currentDate = new Date();
   const day = currentDate.getDate();
@@ -198,7 +229,7 @@ const formattedDate = computed(() => {
   return `${day}${getOrdinalSuffix(day)} ${month} ${year}`;
 });
 
-// Mock data for notifications
+// 通知信息的处理
 const notifications = ref([
   { message: 'You have a new message from Dr. Alice Smith' },
   { message: 'Your paper "AI and Ethics" has been downloaded 5 times' },
@@ -210,7 +241,7 @@ const handleNotificationCommand = (notification) => {
   console.log('Notification clicked:', notification);
 };
 
-// Mock data for published papers
+// 公开的论文数据
 const papers = ref([
   { title: 'Deep Learning in Medical Imaging', author: 'Dr. Alice Smith', link: 'https://example.com/paper1' },
   { title: 'Natural Language Processing Trends', author: 'Dr. Bob Brown', link: 'https://example.com/paper2' },
@@ -223,13 +254,13 @@ const papers = ref([
 ]);
 
 // User information data
-const iconUrl = 'https://path-to-your-icon.png';
-const userName = 'Odeon Mart';
+const iconUrl = useUserStore().user.avatar;
+const userName = useUserStore().user.username;
 const productCount = 400;
 const experience = 12;
 const rating = 4.8;
 
-// Mock data for recent downloads
+// 最近下载的数据
 const recentDownloads = ref([
   { title: 'Deep Learning in Medical Imaging', type: 'Paper', date: '2023-11-01' },
   { title: 'AI and Ethics', type: 'Book', date: '2023-10-29' },
@@ -239,6 +270,10 @@ const recentDownloads = ref([
   { title: 'Robotics in Agriculture', type: 'Paper', date: '2023-10-10' },
   { title: 'Augmented Reality Applications', type: 'Book', date: '2023-10-05' },
 ]);
+
+onMounted(() => {
+  fetchStatistics();
+});
 </script>
 
 <style scoped>
