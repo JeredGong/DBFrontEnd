@@ -41,7 +41,7 @@
                   <div class="card-header">最近发表的论文数</div>
                 </template>
                 <div class="card-content">
-                  <p>本月共发表论文数：{{ statistics.countDocs }}</p>
+                  <p>本月共发表论文数：{{ statistics.uploadDocs }}</p>
                 </div>
               </el-card>
             </el-col>
@@ -52,7 +52,7 @@
                   <div class="card-header">最近下载的论文数</div>
                 </template>
                 <div class="card-content">
-                  <p>本月共下载论文数：{{statistics.countDocs}}</p>
+                  <p>本月共下载论文数：{{statistics.borrowBook}}</p>
                 </div>
               </el-card>
             </el-col>
@@ -63,7 +63,7 @@
                   <div class="card-header">最近借阅的图书数</div>
                 </template>
                 <div class="card-content">
-                  <p>本月共借阅图书数：{{statistics.countBook}}</p>
+                  <p>本月共借阅图书数：{{statistics.dnloadDocs}}</p>
                 </div>
               </el-card>
             </el-col>
@@ -75,15 +75,15 @@
           <div class="published-section">
             <el-card class="paper-card" shadow="hover" body-style="padding: 8px">
                 <div class="card-header centered" > 
-                  <h3>Published Papers</h3>
+                  <h3>公开论文</h3>
                 </div>
               <div class="table-container">
                 <table class="paper-table">
                   <thead>
                     <tr>
-                      <th>Title</th>
-                      <th>Author</th>
-                      <th>Link</th>
+                      <th>标题</th>
+                      <th>作者</th>
+                      <th>下载链接</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -104,21 +104,19 @@
           <div class="published-section">
             <el-card class="paper-card" shadow="hover" body-style="padding: 8px">
                 <div class="card-header centered">
-                  <h3>Published Books</h3>
+                  <h3>公开图书</h3>
                 </div>
               <div class="table-container">
                 <table class="paper-table">
                   <thead>
                     <tr>
-                      <th>Title</th>
-                      <th>Author</th>
-                      <th>Link</th>
+                      <th>标题</th>
+                      <th>下载链接</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr v-for="(paper, index) in papers" :key="index">
                       <td>{{ paper.title }}</td>
-                      <td>{{ paper.author }}</td>
                       <td><a :href="paper.link" target="_blank">View Paper</a></td>
                     </tr>
                   </tbody>
@@ -161,8 +159,9 @@
           <ul class="download-list">
             <li v-for="(item, index) in recentDownloads" :key="index" class="download-item">
               <span class="item-title">{{ item.title }}</span>
-              <span class="item-type">{{ item.type }}</span>
-              <span class="download-date">{{ item.date }}</span>
+              <span class="download-link">
+        <a :href="item.url" target="_blank" rel="noopener noreferrer">View Link</a>
+      </span>
             </li>
           </ul>
         </el-card>
@@ -172,21 +171,26 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, onMounted, onUnmounted } from 'vue';
+import { computed, ref, onMounted, onUnmounted,watch,reactive } from 'vue';
 import { Message } from '@element-plus/icons-vue';
 import { useUserStore } from '../stores/user';
+import { useDownloadStore } from '../stores/downloadStore';
 import axios from 'axios';
-
+axios.defaults.baseURL ='http://localhost:9876'
+const jwtToken = localStorage.getItem('authToken'); // 存储在 localStorage
 const userStore = useUserStore();           // 引入用户状态
+const DownloadStore = useDownloadStore();   // 引入下载状态
 // 定义统计信息类型
 interface StatisticsResponse {
-  countBook: number;
-  countDocs: number;
+  uploadDocs:number;
+  borrowBook: number;
+  dnloadDocs: number;
 }
 // 定义统计信息量
 const statistics = ref<StatisticsResponse>({
-  countBook: 0,
-  countDocs: 0,
+  uploadDocs: 0,
+  borrowBook: 0,
+  dnloadDocs: 0,
 });
 const error = ref<string | null>(null);
 // 获取统计数据的函数
@@ -195,7 +199,7 @@ const fetchStatistics = async () => {
   try {
     const response = await axios.get('/stat', {
       headers: {
-        Authorization: `Bearer`+ userStore.authToken  // 认证令牌
+        Authorization: `Bearer ${jwtToken}`  // 认证令牌
       }
     });
     // 更新统计数据
@@ -253,23 +257,23 @@ const papers = ref([
   { title: 'Advances in Data Science', author: 'Dr. Ivy Blue', link: 'https://example.com/paper8' },
 ]);
 
-// User information data
-const iconUrl = useUserStore().user.avatar;
-const userName = useUserStore().user.username;
+const iconUrl = computed(() => userStore.user.avatar);
+const userName = computed(() => userStore.user.username);
 const productCount = 400;
 const experience = 12;
 const rating = 4.8;
 
-// 最近下载的数据
-const recentDownloads = ref([
-  { title: 'Deep Learning in Medical Imaging', type: 'Paper', date: '2023-11-01' },
-  { title: 'AI and Ethics', type: 'Book', date: '2023-10-29' },
-  { title: 'Natural Language Processing Trends', type: 'Paper', date: '2023-10-25' },
-  { title: 'Quantum Computing Basics', type: 'Book', date: '2023-10-20' },
-  { title: 'Blockchain and Security', type: 'Paper', date: '2023-10-15' },
-  { title: 'Robotics in Agriculture', type: 'Paper', date: '2023-10-10' },
-  { title: 'Augmented Reality Applications', type: 'Book', date: '2023-10-05' },
-]);
+interface Downloads{
+  title:string;
+  url:string;
+}
+// 监视DownloadStore.getDownloads的变化
+const recentDownloads = computed(() => {
+  return DownloadStore.getDownloads.map(record => ({
+    title: record.title,
+    url: record.url,
+  }));
+});
 
 onMounted(() => {
   fetchStatistics();

@@ -48,7 +48,6 @@
                     <th>作者</th>
                     <th>借阅者</th>
                     <th>借阅时间</th>
-                    <th>余量</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -58,7 +57,6 @@
                     <td>{{ request.author }}</td>
                     <td>{{ request.username }}</td>
                     <td>{{ request.borrowedAt }}</td>
-                    <td>{{ request.status }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -96,7 +94,6 @@
                     <td>{{ file.publishDate }}</td>
                     <td>{{ file.uploadedBy }}</td>
                     <td>{{ file.upload_date }}</td>
-
                     <td>
                       <el-button
                         size="small"
@@ -196,7 +193,7 @@
       <el-upload
         class="upload-demo"
         drag
-        action="https://jsonplaceholder.typicode.com/posts/"
+        action=#
         :limit="1"
         :on-exceed="handleEditFileExceed"
         multiple
@@ -233,8 +230,10 @@
   <script lang="ts" setup>
   import { ref, computed,reactive,onMounted } from 'vue';
   import { Message, House } from '@element-plus/icons-vue';
+  import { ElMessage } from 'element-plus';
   import { defineEmits } from 'vue';
   import axios from 'axios';
+  axios.defaults.baseURL ='http://localhost:9876'
 // 使用 defineEmits 来定义触发的事件
 const emit = defineEmits();
 const jwtToken = localStorage.getItem('authToken'); // JWT存储在 localStorage
@@ -279,12 +278,13 @@ interface  AllBorrowRequest {
         });
 
         // 请求用户详情
-        const userResponse = await axios.get(`/user/${borrow.userID}`, {
+        const userResponse = await axios.get(`/user/info/${borrow.userID}`, {
           headers: {
             Authorization: `Bearer ${jwtToken}`, // 添加 JWT Token
           },
         });
-
+        const [year, dayOfYear] = borrow.borrowedAt.toString().split(',').map(item => Number(item));
+        borrow.borrowedAt = handleDateReverse(year, dayOfYear);
         if (bookResponse.status === 200 && bookResponse.data && userResponse.status === 200 && userResponse.data) {
           const alldata: AllBorrowRequest = {
             id: borrow.id,
@@ -324,36 +324,59 @@ interface  AllBorrowRequest {
 
   // 定义上传文件查看与编辑、批准的响应式数据
   const fileUploads = ref<FileUpload[]>([]);
-  // 更新状态并排序
+  // 更新状态
   const fetchfileUploads = async () => {
     try {
       const response = await axios.get(`/docs/buffer`, {
         headers: {
           Authorization: `Bearer ${jwtToken}`, // 添加 JWT Token
-        },
+        }
       });
       fileUploads.value = response.data;
+      fileUploads.value.map((file) => {
+  // 处理 publishDate
+  const cleanedPublishDate = file.publishDate.toString().replace(/[\[\]\s]/g, ''); // 去除 '[', ']' 和空格
+  const [year, dayOfYear] = cleanedPublishDate.split(',').map(item => Number(item));
+  console.log(year, dayOfYear);
+  file.publishDate = handleDateReverse(year, dayOfYear);
+  
+  // 处理 upload_date
+  const cleanedUploadDate = file.upload_date.toString().replace(/[\[\]\s]/g, ''); // 去除 '[', ']' 和空格
+  const [year1, dayOfYear1] = cleanedUploadDate.split(',').map(item => Number(item));
+  console.log(year1, dayOfYear1);
+  file.upload_date = handleDateReverse(year1, dayOfYear1);
+});
+
+      console.log('File Uploads:', fileUploads.value);
     } catch (error) {
       console.error('Error fetching file uploads:', error);
     }
   };
   
   // 确认文件的逻辑
-  const confirmFile = async (fileid:number) => {
-    try {
-      const response = await axios.post(`/docs/buffer/${fileid}`, {
-        headers: {
-          Authorization: `Bearer ${jwtToken}`, // 添加 JWT Token
-        },
-      });
-      if(response.status === 200){
-        Message.success('文件已确认成功');
-      }
-    } catch (error) {
-      console.error('Error fetching file uploads:', error);
-      Message.error('文件确认失败,错误信息：'+error);
-    }
+  const confirmFile = async (fileid: number) => {
+  const url = `/docs/buffer/${fileid}`; // 提取 URL
+  const config = {
+    headers: {
+      Authorization: `Bearer ${jwtToken}`, // 使用模板字符串优化
+    },
   };
+
+  try {
+    const response = await axios.post(url, {}, config); // 使用空对象传递请求体
+    if (response.status === 200) {
+      ElMessage.success('文件已确认成功');
+      fetchfileUploads(); // 确认成功后刷新文件列表
+    } else {
+      ElMessage.error(`文件确认失败，状态码：${response.status}`);
+    }
+  } catch (error: any) {
+    console.error('Error confirming file:', error);
+    const errorMessage = error?.response?.data?.message || error.message || '未知错误';
+    ElMessage.error(`文件确认失败，错误信息：${errorMessage}`);
+  }
+};
+
   // 查看文件的逻辑
   const GetFile = async (file) => {
   try {
@@ -371,29 +394,36 @@ interface  AllBorrowRequest {
       document.body.appendChild(link);
       link.click();
       link.remove();
-      Message.success('文件已查看成功');
+      ElMessage.success('文件已查看成功');
     }
   } catch (error) {
     console.error('Error fetching file uploads:', error);
-    Message.error('文件查看失败,错误信息：' + error);
+    ElMessage.error('文件查看失败,错误信息：' + error);
   }
 };
-  // 拒绝文件的逻辑
-  const refuseFile = async (fileid:number) => {
-    try {
-      const response = await axios.delete(`/docs/buffer/${fileid}`, {
-        headers: {
-          Authorization: `Bearer ${jwtToken}`, // 添加 JWT Token
-        },
-      });
-      if(response.status === 200){
-        Message.success('文件已拒绝成功');
-      }
-    } catch (error) {
-      console.error('Error fetching file uploads:', error);
-      Message.error('文件拒绝失败,错误信息：'+error);
-    }
+const refuseFile = async (fileid: number) => {
+  const url = `/docs/buffer/${fileid}`; // 提取 URL
+  const config = {
+    headers: {
+      Authorization: `Bearer ${jwtToken}`, // 使用模板字符串优化
+    },
   };
+
+  try {
+    const response = await axios.delete(url, config); // 直接传递 config
+    if (response.status === 200) {
+      ElMessage.success('文件已拒绝成功');
+      fetchfileUploads(); // 拒绝成功后刷新文件列表
+    } else {
+      ElMessage.error(`文件拒绝失败，状态码：${response.status}`);
+    }
+  } catch (error: any) {
+    console.error('Error refusing file:', error);
+    const errorMessage = error?.response?.data?.message || error.message || '未知错误';
+    ElMessage.error(`文件拒绝失败，错误信息：${errorMessage}`);
+  }
+};
+
   // 编辑文件的逻辑
   const editDialogVisible = ref(false); // 控制编辑弹出框可见性
   const editingDocument = reactive({
@@ -401,8 +431,8 @@ interface  AllBorrowRequest {
   title: '',
   author: '',
   docType: '',
-  publishDate: '', // ISO 字符串日期
-  pdfContent: '', // 编辑的新文件 Base64 字符串
+  publishDate: new Date(), // ISO 字符串日期
+  pdfContent: new Uint8Array(), // 编辑的新文件 Base64 字符串
 });
   const editFileList = ref([]); // 文件列表用于编辑上传
   // 打开编辑弹出框并初始化信息
@@ -411,8 +441,8 @@ const openEditDialog = (doc) => {
   editingDocument.title = doc.title || ''; // 初始化标题
   editingDocument.author = doc.author || ''; // 初始化作者
   editingDocument.docType = doc.docType || ''; // 初始化类型
-  editingDocument.publishDate = doc.publishDate || ''; // 初始化出版时间
-  editingDocument.pdfContent = ''; // 清空之前的上传文件
+  editingDocument.publishDate = new Date() ; // 初始化出版时间
+  editingDocument.pdfContent = new Uint8Array(); // 清空之前的上传文件
   editFileList.value = []; // 清空文件列表
   editDialogVisible.value = true;
 };
@@ -424,8 +454,8 @@ const closeEditDialog = () => {
   editingDocument.title = ''; // 清空标题
   editingDocument.author = ''; // 清空作者
   editingDocument.docType = ''; // 清空类型
-  editingDocument.publishDate = ''; // 清空出版时间
-  editingDocument.pdfContent = ''; // 清空文件内容
+  editingDocument.publishDate = new Date(); // 清空出版时间
+  editingDocument.pdfContent = new Uint8Array(); // 清空文件内容
   editDialogVisible.value = false;
 };
 
@@ -436,30 +466,28 @@ const handleEditFileExceed = (files, fileList) => {
   }
 };
 
-// 处理文件变更，读取 Base64 数据
+// 处理文件变更，读取 文件 数据
 const handleEditFileChange = (file, fileList) => {
   editFileList.value = fileList;
 
-  const reader = new FileReader();
-  reader.onload = (event) => {
-    let result = event.target?.result as string;
+const reader = new FileReader();
+reader.onload = (event) => {
+  let result = event.target?.result;
 
-    // 移除 `data:<MIME>;base64,` 前缀
-    if (result?.startsWith("data:")) {
-      const base64StartIndex = result.indexOf("base64,") + 7;
-      result = result.substring(base64StartIndex);
-    }
-
-    editingDocument.pdfContent = result; // 存储 Base64 数据
-    console.log("上传的新文件 Base64:", editingDocument.pdfContent);
-  };
-
-  reader.readAsDataURL(file.raw);
+  // 这里的 result 已经是 ArrayBuffer，我们可以直接处理它
+  if (result instanceof ArrayBuffer) {
+    // 将 ArrayBuffer 转为 Uint8Array（二进制数组）
+    const uint8Array = new Uint8Array(result);
+    editingDocument.pdfContent = uint8Array; // 存储二进制数据
+    console.log("上传的新文件二进制数据:", editingDocument.pdfContent);
+  }
+};
+reader.readAsArrayBuffer(file.raw); // 使用 readAsArrayBuffer 读取文件
 };
 
 // 删除上传文件
 const handleEditFileRemove = (file) => {
-  editingDocument.pdfContent = ''; // 移除文件时清空 Base64 数据
+  editingDocument.pdfContent = new Uint8Array(); // 移除文件时清空 Base64 数据
   Message.warning(`文件 ${file.name} 已移除`);
 };
 
@@ -476,19 +504,28 @@ const submitEdit = async () => {
       Message.error('请先登录');
       return;
     }
+    const  RequestIns={
+      id: editingDocument.id,
+      title: editingDocument.title,
+      author: editingDocument.author,
+      docType: editingDocument.docType,
+      publishDate: handleDateChange(editingDocument.publishDate),
+      pdfContent: Array.from(editingDocument.pdfContent) ,
 
-    const response = await axios.put(`/docs/buffer/${editingDocument.id}`, editingDocument, {
+    }
+    const response = await axios.put(`/docs/buffer/${editingDocument.id}`, RequestIns, {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${jwtToken}`,
       },
     });
     if(response.status === 200){
-      Message.success('文档编辑成功');
+      console.log('Edit Document Response:', response.data);
+      ElMessage.success()
       closeEditDialog();
     }
   } catch (error) {
-    Message.error('文档编辑失败，请稍后重试');
+    console.log('Error editing document:', error);
   }
 };
 
@@ -514,6 +551,32 @@ const handleNotificationCommand = (notification) => {
 const goHome = () => {
   emit('goHome','Home');
   console.log('Go Home');
+};
+const handleDateChange = (date) => {
+  // 获取年份
+  const year = date.getFullYear();
+
+  // 获取该日期的当年第一天
+  const firstDayOfYear = new Date(year, 0, 1);
+
+  // 计算该日期是该年中的第几天
+  const dayOfYear = Math.floor((date.getTime() - firstDayOfYear.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+  // 返回结果：[年份, 第X天]
+  return [year, dayOfYear];
+};
+const handleDateReverse = (year, dayOfYear) => {
+  // 创建一个该年份1月1日的日期对象
+  const date = new Date(year, 0, 1);  // 0代表1月，1代表日期
+  // 在1月1日的基础上，添加天数（减去1，因为1月1日是第1天）
+  date.setDate(date.getDate() + dayOfYear - 1);
+
+  // 获取日期的YYYY-MM-DD格式
+  const yearFormatted = date.getFullYear();
+  const monthFormatted = (date.getMonth() + 1).toString().padStart(2, '0');
+  const dayFormatted = date.getDate().toString().padStart(2, '0');
+  
+  return `${yearFormatted}-${monthFormatted}-${dayFormatted}`;
 };
 onMounted(() => {
   fetchBorrowRequests();
