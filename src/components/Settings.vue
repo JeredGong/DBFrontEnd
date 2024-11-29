@@ -16,7 +16,7 @@
           :icon="House"
           circle
           size="large"
-          @click="goHome"
+          @click="goHome()"
         />
         <el-dropdown trigger="click" @command="handleNotificationCommand">
           <span class="el-dropdown-link">
@@ -47,20 +47,31 @@
       <div class="box">
   <h3 class="box-title">头像设置</h3>
   <div class="avatar-container">
-    <el-avatar src="/static/Group 2210.png" size="100" shape="circle" />
     <el-upload
-          action="https://jsonplaceholder.typicode.com/user/image"
+          class="avatar-uploader"
+          action=#
           :show-file-list="false"
-          :method="'put'"
           :limit="1"
+          :on-success="handleAvatarChange"
           :on-change="handleAvatarChange"
-        >
-          <button
-            class="custom-button"
-            >
-            更换头像
-          </button>
-        </el-upload>
+          :auto-upload="false" 
+          >
+          <div>
+            <el-avatar
+              :src="AvatarForm.url"
+              size="large"
+              shape="circle"
+            />
+          </div>
+      <div class="upload-trigger">
+        <el-button
+        @click="submitAvatar"
+        type="primary" 
+        class="custom-button">
+          更换头像
+        </el-button>
+      </div>  
+    </el-upload>
   </div>
 </div>
 
@@ -120,14 +131,18 @@
 
 <script setup lang="ts">
 import { ref, computed } from "vue";
+import { reactive } from 'vue';
 import { ElMessage } from "element-plus";
-import { useRouter } from "vue-router";
 import { Message, House } from "@element-plus/icons-vue";
+import { defineEmits } from 'vue';
 import axios from 'axios';
+import { useUserStore } from '../stores/user';
 axios.defaults.baseURL ='http://localhost:9876'
-
+const userStore = useUserStore();           // 引入用户状态
+const emit = defineEmits();
+const jwtToken = localStorage.getItem('authToken');
 // 用户名表单
-const form = ref({ username: "Dagank" });
+const form = ref({ username: userStore.user.username });
 
 // 密码表单
 const passwordForm = ref({
@@ -135,30 +150,78 @@ const passwordForm = ref({
   newPassword: "",
   confirmPassword: "",
 });
-
-// 上传头像
-const uploadAvatar = () => {
-  const input = document.querySelector("input[type='file']") as HTMLInputElement;
-  if (input) input.click();
-};
+//头像表单
+const AvatarForm = reactive({
+  image: new Uint8Array(), //头像的二进制
+  url   : userStore.user.avatar
+});
 
 // 处理头像变更
-const handleAvatarChange = (event: Event) => {
-  const file = (event.target as HTMLInputElement)?.files?.[0];
-  if (file) {
-    const reader = new FileReader();
-    reader.onload = () => {
-      ElMessage.success("Avatar updated successfully!");
+const handleAvatarChange = (file) => {
+  const reader = new FileReader();
+  AvatarForm.url = URL.createObjectURL(file.raw);
+  reader.onload = (e) => {
+    const arrayBuffer = e.target?.result as ArrayBuffer;
+
+    if (!arrayBuffer) {
+      console.error("读取文件时出错，文件内容为空！");
+      return;
+    }
+
+    // 将二进制数据转为数字数组
+    AvatarForm.image = new Uint8Array(arrayBuffer); // 转换为数字数组
+    console.log("头像的二进制数据:", AvatarForm.image);
+  };
+
+  // 捕获读取文件过程中的错误
+  reader.onerror = (error) => {
+    console.error("文件读取错误:", error);
+  };
+
+  // 开始读取文件
+  reader.readAsArrayBuffer(file.raw); // 读取文件为二进制数据
+}; 
+
+const submitAvatar = async () => {
+  try {
+    const jwtToken = localStorage.getItem('authToken'); // 获取 JWT Token
+    if (!jwtToken) {
+      ElMessage.error('请先登录');
+      return;
+    }
+
+    const avatarData = {
+      image: Array.from(AvatarForm.image)
     };
-    reader.readAsDataURL(file);
+    if(avatarData.image.length === 0){
+      ElMessage.error('请先选择头像');
+      return;
+    }
+    const response = await axios.put('/user/image', avatarData, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${jwtToken}`,
+      }
+    });
+    if(response.status === 200){
+      ElMessage.success('头像上传成功');
+    }
+    console.log('服务器响应:', response.data);
+  } catch (error) {
+    console.error('头像上传失败:', error);
+    ElMessage.error('头像上传失败，请稍后重试');
   }
-};
+}
 
 // 更新用户名
 const updateUsername = async () => {
       try {
-        const response = await axios.put('https://jsonplaceholder.typicode.com/user/username', {
+        const response = await axios.put('/user/username', {
           username: form.value.username
+        },{
+          headers:{
+            Authorization:`Bearer ${jwtToken}`
+          }
         });
         console.log('Username updated:', response.data);
         ElMessage.success('Username updated successfully!');
@@ -183,9 +246,13 @@ const updatePassword = async () => {
       }
 
       try {
-        const response = await axios.put('https://jsonplaceholder.typicode.com/user/password', {
-          currentPassword,
-          newPassword
+        const response = await axios.put('/user/password', {
+          old_password_hash: currentPassword,
+          password_hash: newPassword
+        },{
+          headers:{
+            Authorization:`Bearer ${jwtToken}`
+          }
         });
         console.log('Password updated:', response.data);
         ElMessage.success('Password updated successfully!');
@@ -226,12 +293,12 @@ const formattedDate = computed(() => {
   return `${day}${getOrdinalSuffix(day)} ${month} ${year}`;
 });
 
-// Navigate to home route
-const router = useRouter();
-const goHome = () => {
-  router.push("/");
-};
 
+// Navigate to home route
+const goHome = () => {
+  emit('goHome','Home');
+  console.log('Go Home');
+};
 // Handle dropdown commands
 const handleNotificationCommand = (notification) => {
   console.log("Notification clicked:", notification);
@@ -387,6 +454,38 @@ const handleNotificationCommand = (notification) => {
   transform: translateY(0);
 }
 
+/* 优化头像上传骨架与按钮间距 */
+.avatar-uploader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px; /* 调整骨架和按钮的间距 */
+}
 
+.avatar-preview {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 50%;
+  background-color: #f2f2f2; /* 提供骨架背景色 */
+  border: 1px solid #dcdfe6; /* 骨架边框颜色 */
+}
+
+.upload-trigger .el-button {
+  border-radius: 20px; /* 调整按钮更加圆润 */
+  font-size: 14px; /* 优化字体大小 */
+  background-color: #3498db; /* 主色调蓝色 */
+  color: #fff; /* 白色文字 */
+  transition: all 0.3s ease;
+  margin-left: 10px;
+}
+
+.upload-trigger .el-button:hover {
+  background-color: #217dbb; /* 深蓝色悬停效果 */
+}
+/* 修改头像上传按钮的样式 */
+.el-upload {
+  display: inline-block;
+}
 </style>
 

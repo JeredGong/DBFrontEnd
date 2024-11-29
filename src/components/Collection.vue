@@ -55,13 +55,13 @@
       <el-table :data="paginatedDocuments" style="width: 100%; display: flex; justify-content: space-between;" :default-sort="{ prop: 'publishDate', order: 'descending' }" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="55"></el-table-column>
         <el-table-column prop="title" label="标题" width="300"></el-table-column>
-        <el-table-column prop="type" label="类型" width="120"></el-table-column>
+        <el-table-column prop="docType" label="类型" width="120"></el-table-column>
         <el-table-column prop="author" label="作者" width="180"></el-table-column>
         <el-table-column prop="publishDate" label="出版时间" width="150" sortable></el-table-column>
         <el-table-column label="操作" width="320" align="center" >
           <template #default="scope">
             <div class="action-buttons-group">
-              <el-button size="small" type="success" icon="el-icon-download" @click="downloadDocument(scope.row.id)">下载</el-button>
+              <el-button size="small" type="success" icon="el-icon-download" @click="downloadDocument(scope.row)">下载</el-button>
               <el-button size="small" type="danger" icon="el-icon-delete" @click="deleteDocument(scope.row.id)" v-if="Role == 0">删除</el-button>
               <el-button size="small" type="warning" icon="el-icon-edit" @click="openEditDialog(scope.row)" v-if="Role == 0">编辑</el-button>
             </div>
@@ -258,7 +258,6 @@
         type="date"
         placeholder="选择出版时间"
         format="YYYY-MM-DD"
-        :value-format="'yyyy-MM-dd'"  
         class="custom-datepicker"
       ></el-date-picker>
     </el-form-item>
@@ -311,6 +310,7 @@ import type { FormInstance } from 'element-plus';
 import { ElMessage } from 'element-plus';
 import axios from 'axios';
 import { useUserStore } from '../stores/user';
+import { useDownloadStore } from '../stores/downloadStore';
 import { defineEmits } from 'vue';
 axios.defaults.baseURL ='http://localhost:9876'
 // 使用 defineEmits 来定义触发的事件
@@ -318,12 +318,13 @@ const emit = defineEmits();
 const BatchDowload = ref('info');
 const jwtToken = localStorage.getItem('authToken'); // 存储在 localStorage
 const userStore = useUserStore();           // 引入用户状态
+const DownloadStore = useDownloadStore();   // 引入下载状态
 const Role = userStore.user.Role;
 // 第一部分：搜索文档的逻辑处理
 interface Document {
   id: number;
   title: string;
-  type: string;
+  docType: string;
   author: string;
   publishDate: string;
   upload_date: string;
@@ -336,7 +337,7 @@ const documents = ref<Document[]>([
   {
     id: 1,
     title: 'Test',
-    type: 'Paper',
+    docType: 'Paper',
     author: 'Test',
     publishDate: '2021-09-01',
     upload_date: '2021-09-01',
@@ -359,6 +360,20 @@ const searchDocuments = async () => {
       },
     });
     documents.value = response.data;
+    console.log(response.data[0].type)
+    //对于每一个数组中的元组
+    documents.value.map(
+      document =>{
+        if(document.publishDate == null){
+          document.publishDate = '2021-09-01';
+        }
+        // 强制转换为字符串
+        document.publishDate = document.publishDate.toString();
+        const [year, dayOfYear] = document.publishDate.split(',').map(item => Number(item));
+        // 将year 和 dayOfYear 转换为数字
+        document.publishDate = handleDateReverse(year, dayOfYear);
+      }
+    )
     console.log('搜索成功:', documents.value);
   } catch (error) {
     console.error('搜索失败:', error);
@@ -416,33 +431,31 @@ const handleSelectionChange = (rows: Document[]) => {
     };
 
 // 下载文档的逻辑
-const downloadDocument = async (id: number) => {
+const downloadDocument = async (row) => {
   try {
-    const response = await axios.get(`/docs/${id}`, {
+    const response = await axios.get(`/docs/${row.id}`, {
       headers: {
         Authorization: `Bearer ${jwtToken}`, // 添加 JWT Token
       },
       responseType: 'blob', // 指定返回二进制文件
     });
-    if(response.status == 200){
+
+    if (response.status === 200) {
       // 创建 Blob 对象
-    const blob = new Blob([response.data], { type: 'application/pdf' });
-    const url = window.URL.createObjectURL(blob);
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
 
-    // 创建下载链接并触发下载
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `document_${id}.pdf`); // 自定义下载文件名
-    document.body.appendChild(link);
-    link.click();
-
-    // 清理 URL 对象
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(link);
-
-    ElMessage.success('文档下载成功！');
-    }
-    else{
+      // 创建下载链接并触发下载
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `download_${row.title}.pdf`); // 自定义下载文件名
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      // 记录下载信息到 Pinia Store
+      DownloadStore.addDownload(row.title, row.link, url);
+      ElMessage.success('文档下载成功！');
+    } else {
       ElMessage.error('文档下载失败，请稍后重试');
     }
   } catch (error) {
@@ -492,7 +505,7 @@ const editingDocument = reactive({
   title: '',
   author: '',
   docType: '',
-  publishDate: '', // ISO 字符串日期
+  publishDate: new Date(), // ISO 字符串日期
   pdfContent: new Uint8Array(), // 编辑的新文件 Base64 字符串
 });
 const editFileList = ref([]); // 文件列表用于编辑上传
@@ -503,7 +516,7 @@ const openEditDialog = (doc) => {
   editingDocument.title = doc.title || ''; // 初始化标题
   editingDocument.author = doc.author || ''; // 初始化作者
   editingDocument.docType = doc.type || ''; // 初始化类型
-  editingDocument.publishDate = doc.publishDate || ''; // 初始化出版时间
+  editingDocument.publishDate = new Date(); // 初始化出版时间
   editingDocument.pdfContent = new Uint8Array();; // 清空之前的上传文件
   editFileList.value = []; // 清空文件列表
   editDialogVisible.value = true;
@@ -516,7 +529,7 @@ const closeEditDialog = () => {
   editingDocument.title = ''; // 清空标题
   editingDocument.author = ''; // 清空作者
   editingDocument.docType = ''; // 清空类型
-  editingDocument.publishDate = ''; // 清空出版时间
+  editingDocument.publishDate =new Date(); // 清空出版时间
   editingDocument.pdfContent = new Uint8Array();; // 清空文件内容
   editDialogVisible.value = false;
 };
@@ -573,7 +586,7 @@ const submitEdit = async () => {
       title: editingDocument.title,
       author: editingDocument.author,
       docType: editingDocument.docType,
-      publishDate: editingDocument.publishDate,
+      publishDate: handleDateChange(editingDocument.publishDate),
       pdfContent: Array.from(editingDocument.pdfContent) // 将 Uint8Array 转换为普通数组
     };
     console.log(documentData.publishDate);
@@ -589,10 +602,12 @@ const submitEdit = async () => {
     }
     else{
       ElMessage.error('文档编辑失败，请稍后重试');
+      console.log('文档编辑失败:', response.data);
     }
     closeEditDialog();
   } catch (error) {
     ElMessage.error('文档编辑失败，请稍后重试');
+    console.log('文档编辑失败:', error);
   }
 };
 
@@ -808,6 +823,26 @@ const handleDateChange = (date) => {
   // 返回结果：[年份, 第X天]
   return [year, dayOfYear];
 };
+const handleDateReverse = (year, dayOfYear) => {
+  // 创建一个该年份1月1日的日期对象
+  const date = new Date(year, 0, 1);  // 0代表1月，1代表日期
+  // 在1月1日的基础上，添加天数（减去1，因为1月1日是第1天）
+  date.setDate(date.getDate() + dayOfYear - 1);
+
+  // 获取日期的YYYY-MM-DD格式
+  const yearFormatted = date.getFullYear();
+  const monthFormatted = (date.getMonth() + 1).toString().padStart(2, '0');
+  const dayFormatted = date.getDate().toString().padStart(2, '0');
+  
+  return `${yearFormatted}-${monthFormatted}-${dayFormatted}`;
+};
+
+// 检查闰年
+const isLeapYear = (year) => {
+  return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+};
+
+
 </script>
 
 <style scoped>

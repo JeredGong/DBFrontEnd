@@ -81,11 +81,11 @@
       >
         <template #default="{ row }">
           <el-tag
-            :type="row.isAdmin ? 'success' : 'info'"
+            :type="row.role ? 'info' : 'success'"
             effect="plain"
             class="custom-role-tag"
           >
-            {{ row.isAdmin ? '管理员' : '普通用户' }}
+            {{ row.role ? '普通用户' : '管理员' }}
           </el-tag>
         </template>
       </el-table-column>
@@ -99,10 +99,10 @@
           <el-button
             size="small"
             type="primary"
-            @click="toggleAdmin(row)"
+            @click="toggleAdmin(row.id,row.role)"
             class="custom-action-btn"
           >
-            {{ row.isAdmin ? '降为普通用户' : '提升为管理员' }}
+            {{ row.role ? '提升为管理员' : '降为普通用户' }}
           </el-button>
           <el-button
             size="small"
@@ -149,8 +149,8 @@
           class="avatar-uploader"
           action="#"
           :show-file-list="false"
-          :on-change="handleAvatarChange"
-          :before-upload="beforeAvatarUpload"
+          @change="handleAvatarChange"
+          :auto-upload="false"
         >
           <el-avatar
             size="large"
@@ -197,7 +197,7 @@
     <div class="form-item">
       <el-form-item label="密码" label-width="100px" required>
         <el-input
-          v-model="newUser.password"
+          v-model="newUser.password_hash"
           placeholder="请输入密码"
           type="password"
           class="custom-input"
@@ -250,6 +250,7 @@ import { ref, computed, onMounted} from 'vue';
 import { Message, House, Search } from '@element-plus/icons-vue';
 import { defineEmits } from 'vue';
 import axios from 'axios';
+import { ElMessage } from 'element-plus';
 axios.defaults.baseURL ='http://localhost:9876'
 // 使用 defineEmits 来定义触发的事件
 const emit = defineEmits();
@@ -327,14 +328,16 @@ interface NewUser {
   password_hash: string;
   email: string;
   role: number;
-  image: number[]; // 使用数字数组来表示二进制数据
+  image: Uint8Array; // 使用数字数组来表示二进制数据
+  avatar: string;
 }
 const newUser = ref<NewUser>({
   username: "",
   email: "",
   password_hash: "",
   role: 0 , // 是否管理员
-  image: [] // 头像路径
+  image: new Uint8Array() ,// 头像路径
+  avatar: ''
 });
 
 // 控制弹窗的显示
@@ -354,7 +357,7 @@ const closeAddUserModal = () => {
 const submitNewUser = async () => {
   try {
     // 校验数据完整性
-    if (!newUser.value.username || !newUser.value.email || !newUser.value.password_hash || !newUser.value.image || newUser.value.image.length === 0) {
+    if (0) {
       return alert("请填写完整的用户信息！");
     }
 
@@ -364,7 +367,7 @@ const submitNewUser = async () => {
       password_hash: newUser.value.password_hash, // 假设密码直接作为哈希值发送
       email: newUser.value.email,
       role: newUser.value.role,
-      image: newUser.value.image, // 直接使用已经存储的 image 数组（number[]）
+      image: Array.from(newUser.value.image) , // 直接使用已经存储的 image 数组（number[]）
     };
 
     // 调用后端 API
@@ -378,7 +381,7 @@ const submitNewUser = async () => {
     if (response.status === 200) {
       alert("用户添加成功！");
       // 清空表单
-      newUser.value = { username: "", email: "", password_hash: "", image: [], role: 0 };
+      newUser.value = { username: "", email: "", password_hash: "", image:new Uint8Array() , role: 0 ,avatar: '' };
       showAddUserModal.value = false;
       // 重新加载用户列表
       fetchUsers();
@@ -392,18 +395,69 @@ const submitNewUser = async () => {
 
 
 // 删除用户
-const deleteUser = (userId: number) => {
-  users.value = users.value.filter(user => user.id !== userId);
+const deleteUser = async (id: number) => {
+  try{
+    const response = await axios.delete(`/user/delete/${id}`,{
+      headers: {
+        Authorization: `Bearer ${jwtToken}`, // 添加 JWT Token
+      }
+    });
+    if(response.status === 200){
+    fetchUsers();}
+  }
+  catch (error) {
+    console.error("Error deleting user:", error);  }
+
 };
 
-const handleAvatarChange = (file: File) => {
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const arrayBuffer = e.target?.result as ArrayBuffer; // 获取二进制数据（ArrayBuffer）
-    newUser.value.image = Array.from(new Uint8Array(arrayBuffer)); // 转换为数字数组
-  };
-  reader.readAsArrayBuffer(file); // 读取文件为二进制数据
+
+// 更改用户角色
+const toggleAdmin = async (id: number, role: number) => {
+  try {
+    // 选择请求的 URL，根据角色决定升级或降级
+    const endpoint = role === 1 ? `/user/upgrade/${id}` : `/user/dngrade/${id}`;
+
+    // 发送请求
+    await axios.post(endpoint, {}, {
+      headers: {
+        Authorization: `Bearer ${jwtToken}`, // 添加 JWT Token
+      },
+    });
+    
+    // 刷新用户列表
+    fetchUsers();
+  } catch (error) {
+    console.error("Error changing user role:", error);
+    ElMessage.error("用户角色更改失败，请稍后重试！");
+  }
 };
+
+const handleAvatarChange = (file) => {
+  const reader = new FileReader();
+  newUser.value.avatar = URL.createObjectURL(file.raw);
+  reader.onload = (e) => {
+    const arrayBuffer = e.target?.result as ArrayBuffer;
+
+    if (!arrayBuffer) {
+      console.error("读取文件时出错，文件内容为空！");
+      return;
+    }
+
+    // 将二进制数据转为数字数组
+    newUser.value.image = new Uint8Array(arrayBuffer); // 转换为数字数组
+    console.log("头像的二进制数据:", newUser.value.image);
+  };
+
+  // 捕获读取文件过程中的错误
+  reader.onerror = (error) => {
+    console.error("文件读取错误:", error);
+  };
+
+  // 开始读取文件
+  reader.readAsArrayBuffer(file.raw); // 读取文件为二进制数据
+}; 
+
+
 
 
 
