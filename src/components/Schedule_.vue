@@ -32,7 +32,7 @@
         </div>
       </div>
   
-      <!-- 图书借阅审核 -->
+      <!-- 图书借阅一览 -->
       <div class="info-card-container">
         <div class="published-section">
           <el-card class="paper-card" shadow="hover" body-style="padding: 8px">
@@ -131,10 +131,11 @@
   :before-close="closeEditDialog"
   custom-class="custom-dialog"
 >
-  <!-- 美化标题 -->
+
+  <!-- 编辑文档 -->
   <div class="dialog-header">
     <h2 class="dialog-title">编辑文档信息</h2>
-    <p class="dialog-subtitle">请修改文档信息后提交</p>
+    <p class="dialog-subtitle">请修改文档信息后再提交</p>
   </div>
 
   <el-form :model="editingDocument" ref="formRef" label-width="120px">
@@ -219,9 +220,7 @@
         type="primary"
         @click="submitEdit"
         class="custom-button"
-      >
-        提交
-      </el-button>
+      >提交</el-button>
     </span>
   </template>
 </el-dialog>
@@ -234,36 +233,37 @@
   import { defineEmits } from 'vue';
   import axios from 'axios';
   axios.defaults.baseURL ='http://localhost:9876'
-// 使用 defineEmits 来定义触发的事件
-const emit = defineEmits();
-const jwtToken = localStorage.getItem('authToken'); // JWT存储在 localStorage
-// 定义图书借阅查看
-interface BorrowRequest {
-  id: number;
-  userID : number;
-  bookID : number;
-  borrowedAt : string;
-  returnedAt : string;
-  remain     : number;
-}
-interface  AllBorrowRequest {
-  id: number;
-  username : string;
-  title : string;
-  author : string;
-  borrowedAt : string;
-  returnedAt : string;
-  remain     : number;
-}
-  // 定义图书借阅查看的响应式数据
-  const borrowRequests = ref<BorrowRequest[]>([]);
-  const allBorrowRequests = ref<AllBorrowRequest[]>([]);
+  // 使用 defineEmits 来定义触发的事件
+  const emit = defineEmits();
+  const jwtToken = localStorage.getItem('authToken'); // JWT存储在 localStorage
+  
+  // 定义图书借阅查看
+  interface BorrowRequest {
+    id: number;
+    userID : number;
+    bookID : number;
+    borrowedAt : string;
+    returnedAt : string;
+    remain     : number;
+  }
+  interface  AllBorrowRequest {
+    id: number;
+    username : string;
+    title : string;
+    author : string;
+    borrowedAt : string;
+    returnedAt : string;
+    remain     : number;
+  }
+    // 定义图书借阅查看的响应式数据
+    const borrowRequests = ref<BorrowRequest[]>([]);
+    const allBorrowRequests = ref<AllBorrowRequest[]>([]);
     // 向后端请求数据
     const fetchBorrowRequests = async () => {
-  try {
-    const response = await axios.get(`/book/borrowings/all`, {
-      headers: {
-        Authorization: `Bearer ${jwtToken}`, // 添加 JWT Token
+    try {
+      const response = await axios.get(`/book/borrowings/all`, {
+        headers: {
+          Authorization: `Bearer ${jwtToken}`, // 添加 JWT Token
       },
     });
 
@@ -436,7 +436,7 @@ const refuseFile = async (fileid: number) => {
 });
   const editFileList = ref([]); // 文件列表用于编辑上传
   // 打开编辑弹出框并初始化信息
-const openEditDialog = (doc) => {
+  const openEditDialog = (doc) => {
   editingDocument.id = doc.id;
   editingDocument.title = doc.title || ''; // 初始化标题
   editingDocument.author = doc.author || ''; // 初始化作者
@@ -466,7 +466,7 @@ const handleEditFileExceed = (files, fileList) => {
   }
 };
 
-// 处理文件变更，读取 文件 数据
+// 处理文件变更，读取文件数据
 const handleEditFileChange = (file, fileList) => {
   editFileList.value = fileList;
 
@@ -482,6 +482,7 @@ reader.onload = (event) => {
     console.log("上传的新文件二进制数据:", editingDocument.pdfContent);
   }
 };
+
 reader.readAsArrayBuffer(file.raw); // 使用 readAsArrayBuffer 读取文件
 };
 
@@ -612,7 +613,7 @@ onMounted(() => {
   }
   
   .formatted-date {
-    font-size: 14px;
+    font-size: 15px;
     color: #777;
   }
 
