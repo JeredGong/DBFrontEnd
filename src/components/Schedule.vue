@@ -1,40 +1,35 @@
 <template>
-    <div class="schedule-container">
-
-        <div class="header-container">
-            <div class="header-left">
-                <div class="overview-title">
-                    <span>图书借阅系统</span>
-                </div>
-                <div class="formatted-date">
-                    <span>{{ formattedDate }}</span>
-                </div>
-            </div>
-            <div class="header-right">
-                <el-button type="primary" :icon="House" circle size="large" @click="goHome" />
-                <el-dropdown trigger="click" @command="handleNotificationCommand">
-                    <span class="el-dropdown-link">
-                        <el-badge is-dot class="notification-badge" :offset="[-5,1]">
-                            <el-button :icon="Message" type="primary" circle size="large" />
-                        </el-badge>
-                    </span>
-                    <template #dropdown>
-                        <el-dropdown-menu>
-                            <el-dropdown-item v-for="(notification, index) in notifications" :key="index" :command="notification">
-                                {{ notification.message }}
-                            </el-dropdown-item>
-                            <el-dropdown-item v-if="notifications.length === 0" disabled>
-                                No new notifications
-                            </el-dropdown-item>
-                        </el-dropdown-menu>
-                    </template>
-                </el-dropdown>
-            </div>
+  <div class="schedule-container">
+    <div class="header-container">
+      <div class="header-left">
+        <div class="overview-title">
+          <span>图书借阅系统</span>
         </div>
-
-
-
-
+        <div class="formatted-date">
+          <span>{{ formattedDate }}</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <el-button type="primary" :icon="House" circle size="large" @click="goHome" />
+        <el-dropdown trigger="click" @command="handleNotificationCommand">
+          <span class="el-dropdown-link">
+            <el-badge is-dot class="notification-badge" :offset="[-5,1]">
+              <el-button :icon="Message" type="primary" circle size="large" />
+            </el-badge>
+          </span>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item v-for="(notification, index) in notifications" :key="index" :command="notification">
+                {{ notification.message }}
+              </el-dropdown-item>
+              <el-dropdown-item v-if="notifications.length === 0" disabled>
+                No new notifications
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </div>
+    </div>
 
         <div class="after-header">
             <!--Search1-->
@@ -78,7 +73,7 @@
                 class="pagination-center"
             ></el-pagination>
         </div>
-    </div>
+  </div>
 
 
     <el-dialog v-model="borrowDialogVisible" title="您已借阅的书籍" width="1150" :visible.sync="borrowDialogVisible">
@@ -407,13 +402,6 @@ const showBorrowedBooks = () => {
   fetchBorrowedBooks();  // 请求已借阅书籍数据
 };
 
-
-
-
-
-
-
-
 const handlePageChange = (page) => {
     currentPage.value = page;
 };
@@ -461,6 +449,7 @@ const handleDateChange = (date) => {
   // 返回结果：[年份, 第X天]
   return [year, dayOfYear];
 };
+
 const handleDateReverse = (year, dayOfYear) => {
   // 创建一个该年份1月1日的日期对象
   const date = new Date(year, 0, 1);  // 0代表1月，1代表日期
@@ -474,12 +463,14 @@ const handleDateReverse = (year, dayOfYear) => {
   
   return `${yearFormatted}-${monthFormatted}-${dayFormatted}`;
 };
+
 // Mock data for notifications
 const notifications = ref([
   { message: 'You have a new message from Dr. Alice Smith' },
   { message: 'Your paper "AI and Ethics" has been downloaded 5 times' },
   { message: 'You have a new follower: Dr. Bob Brown' },
 ]);
+
 // Formatting the current date
 const formattedDate = computed(() => {
   const currentDate = new Date();
@@ -551,7 +542,6 @@ const formattedDate = computed(() => {
   margin-top: 40px;
 }
 
-
 .search-input {
     width: 400px;
 }
@@ -592,12 +582,14 @@ const formattedDate = computed(() => {
   margin-right: 20px;
   height: 37px;
 }
+
 .Return-Upload {
     display: flex;
     gap: 15px; /* 添加间隔 */
     align-items: center; /* 垂直居中 */
     margin-right: 20px;
 }
+
 .dialog-header {
   text-align: center;
   margin-bottom: 20px;
@@ -609,6 +601,7 @@ const formattedDate = computed(() => {
   color: #1e90ff;
   margin-bottom: 8px;
 }
+
 .custom-button {
   border-radius: 20px;
   padding: 8px 24px;
@@ -620,19 +613,23 @@ const formattedDate = computed(() => {
   background-color: #1e90ff;
   color: white;
 }
+
 .custom-dialog {
   border-radius: 20px;
   background-color: #ffffff;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
   padding: 20px;
 }
+
 .custom-datepicker .el-date-editor:focus {
   border-color: #1e90ff;
   box-shadow: 0 0 8px rgba(30, 144, 255, 0.3);
 }
+
 .custom-input .el-input__inner::placeholder,
 .custom-select .el-select__inner::placeholder {
   color: #bfbfbf;
   font-size: 13px;
 }
+
 </style>
