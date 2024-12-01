@@ -75,97 +75,95 @@
     </div>
   </div>
 
-    <el-dialog v-model="borrowDialogVisible" title="您已借阅的书籍" width="1150" :visible.sync="borrowDialogVisible">
-            <el-input v-model="searchQuery" placeholder="查询已借阅的图书" class="search-input" clearable :prefix-icon="Search"/>
-            <el-table :data="returnBorrowedBooks" style="width: 100%; display: flex; justify-content: space-between;">
-                <el-table-column prop="title" label="书名" width="200"></el-table-column>
-                <el-table-column prop="author" label="作者" width="200"></el-table-column>
-                <el-table-column prop="publishDate" label="出版日期" width="200" sortable></el-table-column>
-                <el-table-column prop="borrowedAt" label="借阅日期" width="200" sortable></el-table-column>
-                <el-table-column label="操作">
-                    <template v-slot="scope">
-                        <el-button type="primary" @click="returnBook(scope.row)">归还</el-button>
-                    </template>
-                </el-table-column>
-            </el-table>
-            <el-pagination
-                background
-                layout="prev, pager, next"
-                :total="totalBooks"
-                :page-size="pageSize"
-                v-model:current-page="currentPage"
-                @current-change="handlePageChange"
-                class="pagination-center"
-            ></el-pagination>
-    </el-dialog>
+  <el-dialog v-model="borrowDialogVisible" title="您已借阅的书籍" width="1150" :visible.sync="borrowDialogVisible">
+    <el-input v-model="searchQuery" placeholder="查询已借阅的图书" class="search-input" clearable :prefix-icon="Search"/>
+    <el-table :data="returnBorrowedBooks" style="width: 100%; display: flex; justify-content: space-between;">
+      <el-table-column prop="title" label="书名" width="200"></el-table-column>
+      <el-table-column prop="author" label="作者" width="200"></el-table-column>
+      <el-table-column prop="publishDate" label="出版日期" width="200" sortable></el-table-column>
+      <el-table-column prop="borrowedAt" label="借阅日期" width="200" sortable></el-table-column>
+      <el-table-column label="操作">
+        <template v-slot="scope">
+          <el-button type="primary" @click="returnBook(scope.row)">归还</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+    <el-pagination
+      background
+      layout="prev, pager, next"
+      :total="totalBooks"
+      :page-size="pageSize"
+      v-model:current-page="currentPage"
+      @current-change="handlePageChange"
+      class="pagination-center"
+    ></el-pagination>
+  </el-dialog>
 
   <el-dialog
-  title="上传图书信息"
-  v-model="BookDialogVisible"
-  width="50%"
-  :before-close="closeEditDialog"
-  custom-class="custom-dialog"
-  :visible.sync="BookDialogVisible"
->
-  <!-- 美化标题 -->
-  <div class="dialog-header">
-    <h2 class="dialog-title">上传图书信息</h2>
-  </div>
+    title="上传图书信息"
+    v-model="BookDialogVisible"
+    width="50%"
+    :before-close="closeEditDialog"
+    custom-class="custom-dialog"
+    :visible.sync="BookDialogVisible"
+  >
+    <!-- 美化标题 -->
+    <div class="dialog-header">
+      <h2 class="dialog-title">上传图书信息</h2>
+    </div>
 
-  <el-form :model="editingDocument" ref="formRef" label-width="120px">
-    <el-form-item
-      label="标题"
-      prop="title"
-      :rules="[{ required: true, message: '请输入标题', trigger: 'blur' }]"
-    >
-      <el-input
-        v-model="editingDocument.title"
-        placeholder="请输入标题"
-        class="custom-input"
-      ></el-input>
-    </el-form-item>
-    <el-form-item
-      label="作者"
-      prop="author"
-      :rules="[{ required: true, message: '请输入作者', trigger: 'blur' }]"
-    >
-      <el-input
-        v-model="editingDocument.author"
-        placeholder="请输入作者"
-        class="custom-input"
-      ></el-input>
-    </el-form-item>
-    <el-form-item
-      label="出版时间"
-      prop="publishDate"
-      :rules="[{ required: true, message: '请选择时间', trigger: 'change' }]"
-    >
-      <el-date-picker
-        v-model="editingDocument.publishDate"
-        type="date"
-        placeholder="选择出版时间"
-        format="YYYY-MM-DD"
-        class="custom-datepicker"
-      ></el-date-picker>
-    </el-form-item>
-  </el-form>
-
-  <template #footer>
-    <span class="dialog-footer">
-      <el-button @click="closeEditDialog" class="custom-button">取消</el-button>
-      <el-button
-        type="primary"
-        @click="submitEdit"
-        class="custom-button"
+    <el-form :model="editingDocument" ref="formRef" label-width="120px">
+      <el-form-item
+        label="标题"
+        prop="title"
+        :rules="[{ required: true, message: '请输入标题', trigger: 'blur' }]"
       >
-        提交
-      </el-button>
-    </span>
-  </template>
-</el-dialog>
+        <el-input
+          v-model="editingDocument.title"
+          placeholder="请输入标题"
+          class="custom-input"
+        ></el-input>
+      </el-form-item>
+      <el-form-item
+        label="作者"
+        prop="author"
+        :rules="[{ required: true, message: '请输入作者', trigger: 'blur' }]"
+      >
+        <el-input
+          v-model="editingDocument.author"
+          placeholder="请输入作者"
+          class="custom-input"
+        ></el-input>
+      </el-form-item>
+      <el-form-item
+        label="出版时间"
+        prop="publishDate"
+        :rules="[{ required: true, message: '请选择时间', trigger: 'change' }]"
+      >
+        <el-date-picker
+          v-model="editingDocument.publishDate"
+          type="date"
+          placeholder="选择出版时间"
+          format="YYYY-MM-DD"
+          class="custom-datepicker"
+        ></el-date-picker>
+      </el-form-item>
+    </el-form>
+
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="closeEditDialog" class="custom-button">取消</el-button>
+        <el-button
+          type="primary"
+          @click="submitEdit"
+          class="custom-button"
+        >
+          提交
+        </el-button>
+      </span>
+    </template>
+  </el-dialog>
 </template>
-
-
 
 <script lang="ts" setup>
 import { ref, computed, watch,reactive} from 'vue';
