@@ -81,6 +81,9 @@ const fetchUserAvatar = async (imagePath) => {
 
   try {
     const imageResponse = await axios.get('/user/image', {
+      headers: {
+        Authorization: `Bearer ${authToken.value}`,
+      },
       params: { image_path: imagePath },
       responseType: 'blob', // 返回 Blob 数据
     });

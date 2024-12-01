@@ -4,7 +4,8 @@
   <div class="aside" >
     <div class="UserInfoBox">
         <div class="UserProfileBox">
-            <img :src="userStore.user.avatar" :alt="userStore.user.username+'Profile'" />
+          <el-avatar size="large" :src="userStore.user.avatar" :alt="userStore.user.username+'Profile'">
+          </el-avatar>
             </div>
             <div style=" width:80px; height: 28px; margin-top: 5px; " class="Username">
             {{userStore.user.username}} 
@@ -154,6 +155,7 @@ import Settings from './components/Settings.vue';
 import Schedule from './components/Schedule.vue';
 import Schedule_ from './components/Schedule_.vue';
 import { defineComponent} from 'vue';
+import { el } from 'element-plus/es/locales.mjs';
 export default defineComponent({
 components: {
   House,
@@ -267,12 +269,14 @@ height: 40px;
 opacity: 1;
 display: flex;
 flex-direction: row;
+align-items: center;
 }
 .UserProfileBox{
 width: 40px;
 height: 40px;
 opacity: 1;
-margin-right: 10px;
+margin-right: 25px;
+margin-bottom: 10px;
 }
 .Username{
 font-size: 20px;
