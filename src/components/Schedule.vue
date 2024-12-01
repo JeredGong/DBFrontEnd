@@ -31,50 +31,49 @@
       </div>
     </div>
 
-        <div class="after-header">
-            <!--Search1-->
-            <div class="Search1">
-                <el-input 
-                    v-model="borrowSearchQuery"
-                    placeholder="输入以查询书目"
-                    clearable
-                    :prefix-icon="Search"
-                    class="search-input"
-                ></el-input>
-            </div>
+    <div class="after-header">
+      <!--Search1-->
+      <div class="Search1">
+        <el-input 
+          v-model="borrowSearchQuery"
+          placeholder="输入以查询书目"
+          clearable
+          :prefix-icon="Search"
+          class="search-input"
+        ></el-input>
+      </div>
 
-            <!--Return Button-->
-            <div class="Return-Upload">
-                <el-button type="primary" @click="showBorrowedBooks">查看已借阅书目</el-button>
-                <el-button type="primary" @click="ClickBook">上传图书信息</el-button>
-            </div>
-        </div>
+      <!--Return Button-->
+      <div class="Return-Upload">
+        <el-button type="primary" @click="showBorrowedBooks">查看已借阅书目</el-button>
+        <el-button type="primary" @click="ClickBook">上传图书信息</el-button>
+      </div>
+    </div>
 
-        <!--Borrow Table-->
-        <div class="borrow-table">
-            <el-table :data="availableBooks" style="width: 100%; display: flex; justify-content: space-between;">
-                <el-table-column type="selection" width="55"></el-table-column>
-                <el-table-column prop="title" label="书名" width="300"></el-table-column>
-                <el-table-column prop="author" label="作者" width="300"></el-table-column>
-                <el-table-column prop="publishDate" label="出版日期" width="300" sortable></el-table-column>
-                <el-table-column label="操作" align="center">
-                    <template v-slot="scope">
-                        <el-button type="primary" @click="borrowBook(scope.row)">借阅</el-button>
-                    </template>
-                </el-table-column>
-            </el-table>
-            <el-pagination
-                background
-                layout="prev, pager, next"
-                :total="totalAvailableBooks"
-                :page-size="availablePageSize"
-                v-model:current-page="availableCurrentPage"
-                @current-change="handleAvailablePageChange"
-                class="pagination-center"
-            ></el-pagination>
-        </div>
+    <!--Borrow Table-->
+    <div class="borrow-table">
+      <el-table :data="availableBooks" style="width: 100%; display: flex; justify-content: space-between;">
+        <el-table-column type="selection" width="55"></el-table-column>
+        <el-table-column prop="title" label="书名" width="300"></el-table-column>
+        <el-table-column prop="author" label="作者" width="300"></el-table-column>
+        <el-table-column prop="publishDate" label="出版日期" width="300" sortable></el-table-column>
+        <el-table-column label="操作" align="center">
+          <template v-slot="scope">
+            <el-button type="primary" @click="borrowBook(scope.row)">借阅</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <el-pagination
+        background
+        layout="prev, pager, next"
+        :total="totalAvailableBooks"
+        :page-size="availablePageSize"
+        v-model:current-page="availableCurrentPage"
+        @current-change="handleAvailablePageChange"
+        class="pagination-center"
+      ></el-pagination>
+    </div>
   </div>
-
 
     <el-dialog v-model="borrowDialogVisible" title="您已借阅的书籍" width="1150" :visible.sync="borrowDialogVisible">
             <el-input v-model="searchQuery" placeholder="查询已借阅的图书" class="search-input" clearable :prefix-icon="Search"/>
